@@ -38,6 +38,14 @@ ALLOWED_HOSTS = [
     '*',  # Temporarily allow all hosts for debugging
 ]
 
+# CSRF settings
+CSRF_TRUSTED_ORIGINS = [
+    'https://collageproject-production.up.railway.app',
+    'http://collageproject-production.up.railway.app',
+    'http://localhost:8000',
+    'http://127.0.0.1:8000',
+]
+
 
 # Application definition
 
