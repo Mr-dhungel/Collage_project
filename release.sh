@@ -19,7 +19,6 @@ python manage.py migrate
 
 # Create admin user
 echo "Creating admin user..."
-cd ..
-python create_admin.py
+python manage.py create_admin
 
 echo "Release process completed successfully."
