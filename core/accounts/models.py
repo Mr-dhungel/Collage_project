@@ -34,6 +34,11 @@ class User(AbstractUser):
     has_face_data = models.BooleanField(default=False, help_text="Whether the user has facial recognition data registered")
     face_samples_count = models.PositiveSmallIntegerField(default=0, help_text="Number of face samples registered for this user")
 
+    # Admin permissions
+    can_manage_voters = models.BooleanField(default=False, help_text="Can manage voters (add, edit, delete)")
+    can_manage_votings = models.BooleanField(default=False, help_text="Can manage votings (add, edit, delete)")
+    can_manage_candidates = models.BooleanField(default=False, help_text="Can manage candidates (add, edit, delete)")
+
     objects = UserManager()
 
     def save(self, *args, **kwargs):

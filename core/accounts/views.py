@@ -11,7 +11,10 @@ import base64
 import tempfile
 import os
 from .models import User
-from .forms import UserIdForm, PasswordForm, VoterCreationForm, VoterUpdateForm
+from .forms import (
+    UserIdForm, PasswordForm, VoterCreationForm, VoterUpdateForm,
+    AdminCreationForm, AdminUpdateForm
+)
 from facial_recognition import FacialRecognition
 
 def login_view(request):
@@ -106,15 +109,38 @@ class VoterListView(LoginRequiredMixin, AdminRequiredMixin, ListView):
     def get_queryset(self):
         return User.objects.filter(is_voter=True)
 
+    def dispatch(self, request, *args, **kwargs):
+        # Check if the admin has permission to manage voters
+        if request.user.is_admin and not request.user.can_manage_voters and not request.user.is_superuser:
+            messages.error(request, "You don't have permission to manage voters.")
+            return redirect('admin_dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
 class VoterCreateView(LoginRequiredMixin, AdminRequiredMixin, CreateView):
     model = User
     form_class = VoterCreationForm
     template_name = 'accounts/voter_form.html'
     success_url = reverse_lazy('voter_list')
 
+    def dispatch(self, request, *args, **kwargs):
+        # Check if the admin has permission to manage voters
+        if request.user.is_admin and not request.user.can_manage_voters and not request.user.is_superuser:
+            messages.error(request, "You don't have permission to manage voters.")
+            return redirect('admin_dashboard')
+        return super().dispatch(request, *args, **kwargs)
+
     def form_valid(self, form):
-        messages.success(self.request, "Voter created successfully!")
-        return super().form_valid(form)
+        # Save the form to create the user
+        response = super().form_valid(form)
+
+        # Check if facial recognition is enabled
+        if form.cleaned_data.get('enable_facial_recognition'):
+            # Redirect to facial recognition registration page
+            messages.success(self.request, "Voter created successfully! Please register facial recognition data.")
+            return redirect('register_voter_face', pk=self.object.pk)
+        else:
+            messages.success(self.request, "Voter created successfully!")
+            return response
 
 class VoterUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
     model = User
@@ -124,6 +150,13 @@ class VoterUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
 
     def get_queryset(self):
         return User.objects.filter(is_voter=True)
+
+    def dispatch(self, request, *args, **kwargs):
+        # Check if the admin has permission to manage voters
+        if request.user.is_admin and not request.user.can_manage_voters and not request.user.is_superuser:
+            messages.error(request, "You don't have permission to manage voters.")
+            return redirect('admin_dashboard')
+        return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
         messages.success(self.request, "Voter updated successfully!")
@@ -136,6 +169,13 @@ class VoterDeleteView(LoginRequiredMixin, AdminRequiredMixin, DeleteView):
 
     def get_queryset(self):
         return User.objects.filter(is_voter=True)
+
+    def dispatch(self, request, *args, **kwargs):
+        # Check if the admin has permission to manage voters
+        if request.user.is_admin and not request.user.can_manage_voters and not request.user.is_superuser:
+            messages.error(request, "You don't have permission to manage voters.")
+            return redirect('admin_dashboard')
+        return super().dispatch(request, *args, **kwargs)
 
     def delete(self, request, *args, **kwargs):
         user = self.get_object()
@@ -156,17 +196,105 @@ class VoterDeleteView(LoginRequiredMixin, AdminRequiredMixin, DeleteView):
         messages.success(self.request, "Voter deleted successfully!")
         return super().delete(request, *args, **kwargs)
 
+# Admin management views
+class SuperuserRequiredMixin(UserPassesTestMixin):
+    def test_func(self):
+        return self.request.user.is_authenticated and self.request.user.is_superuser
+
+    def handle_no_permission(self):
+        messages.error(self.request, "Only superusers can manage admin accounts.")
+        return redirect('admin_dashboard')
+
+class AdminListView(LoginRequiredMixin, SuperuserRequiredMixin, ListView):
+    model = User
+    template_name = 'accounts/admin_list.html'
+    context_object_name = 'admins'
+
+    def get_queryset(self):
+        # Superusers can see all admins
+        return User.objects.filter(is_admin=True)
+
+class AdminCreateView(LoginRequiredMixin, SuperuserRequiredMixin, CreateView):
+    model = User
+    form_class = AdminCreationForm
+    template_name = 'accounts/admin_form.html'
+    success_url = reverse_lazy('admin_list')
+
+    def form_valid(self, form):
+        messages.success(self.request, "Admin user created successfully!")
+        return super().form_valid(form)
+
+class AdminUpdateView(LoginRequiredMixin, SuperuserRequiredMixin, UpdateView):
+    model = User
+    form_class = AdminUpdateForm
+    template_name = 'accounts/admin_form.html'
+    success_url = reverse_lazy('admin_list')
+
+    def get_queryset(self):
+        return User.objects.filter(is_admin=True)
+
+    def dispatch(self, request, *args, **kwargs):
+        # First check if user is superuser (handled by the mixin)
+        response = super().dispatch(request, *args, **kwargs)
+
+        # If we got here, user is a superuser, now check if they're trying to edit themselves
+        admin_user = self.get_object()
+
+        # Prevent editing superuser status through the form
+        if admin_user.pk == request.user.pk and 'is_superuser' in request.POST:
+            messages.error(request, "You cannot modify your own superuser status.")
+            return redirect('admin_list')
+
+        return response
+
+    def form_valid(self, form):
+        messages.success(self.request, "Admin user updated successfully!")
+        return super().form_valid(form)
+
+class AdminDeleteView(LoginRequiredMixin, SuperuserRequiredMixin, DeleteView):
+    model = User
+    template_name = 'accounts/admin_confirm_delete.html'
+    success_url = reverse_lazy('admin_list')
+
+    def get_queryset(self):
+        return User.objects.filter(is_admin=True)
+
+    def dispatch(self, request, *args, **kwargs):
+        # First check if user is superuser (handled by the mixin)
+        response = super().dispatch(request, *args, **kwargs)
+
+        # If we got here, user is a superuser, now check if they're trying to delete themselves
+        admin_user = self.get_object()
+
+        # Prevent deleting yourself
+        if admin_user.pk == request.user.pk:
+            messages.error(request, "You cannot delete your own admin account.")
+            return redirect('admin_list')
+
+        return response
+
+    def delete(self, request, *args, **kwargs):
+        messages.success(self.request, "Admin user deleted successfully!")
+        return super().delete(request, *args, **kwargs)
+
 # Removed register_voter_face_view as it's now integrated into the voter edit page
 
 @csrf_exempt
 def register_voter_face(request, pk):
-    """API endpoint for registering a voter's face"""
+    """View and API endpoint for registering a voter's face"""
     if not request.user.is_authenticated or not request.user.is_admin:
         return JsonResponse({'success': False, 'error': 'Unauthorized'}, status=403)
 
     voter = get_object_or_404(User, pk=pk, is_voter=True)
 
-    if request.method == 'POST':
+    # Handle GET request - render the face registration template
+    if request.method == 'GET':
+        return render(request, 'accounts/face_registration.html', {
+            'voter': voter
+        })
+
+    # Handle POST request - process facial recognition data
+    elif request.method == 'POST':
         # Get the action from the request
         action = request.POST.get('action', 'register')
 

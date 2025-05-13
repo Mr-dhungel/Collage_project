@@ -1,0 +1,96 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if form.instance.pk %}Edit Position{% else %}Create Position{% endif %} - Voting System
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">{% if form.instance.pk %}Edit Position{% else %}Create New Position{% endif %}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="id_title" class="form-label">Title</label>
+                        {{ form.title }}
+                        {% if form.title.errors %}
+                            <div class="text-danger">
+                                {% for error in form.title.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_description" class="form-label">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="text-danger">
+                                {% for error in form.description.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_order" class="form-label">Display Order</label>
+                        {{ form.order }}
+                        {% if form.order.errors %}
+                            <div class="text-danger">
+                                {% for error in form.order.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <small class="form-text text-muted">Lower numbers will be displayed first.</small>
+                    </div>
+
+                    {% if not form.voting.is_hidden %}
+                    <div class="mb-3">
+                        <label for="id_voting" class="form-label">Voting</label>
+                        {{ form.voting }}
+                        {% if form.voting.errors %}
+                            <div class="text-danger">
+                                {% for error in form.voting.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% else %}
+                        {{ form.voting }}
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between">
+                        {% if form.instance.pk and form.instance.voting %}
+                            <a href="{% url 'voting_detail' form.instance.voting.pk %}" class="btn btn-secondary">Cancel</a>
+                        {% elif form.voting.initial %}
+                            <a href="{% url 'voting_detail' form.voting.initial %}" class="btn btn-secondary">Cancel</a>
+                        {% else %}
+                            <a href="{% url 'post_list' %}" class="btn btn-secondary">Cancel</a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">
+                            {% if form.instance.pk %}Update Position{% else %}Create Position{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -22,14 +22,14 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         if options['clear']:
             self.clear_data()
-            
+
         self.create_admin_if_not_exists()
         voters = self.create_voters(options['voters'])
         votings = self.create_votings(options['votings'])
         self.create_candidates(votings, options['candidates'])
         self.assign_voters_to_votings(voters, votings)
         self.cast_votes(voters, votings)
-        
+
         self.stdout.write(self.style.SUCCESS('Successfully populated database with dummy data'))
 
     def clear_data(self):
@@ -49,7 +49,8 @@ class Command(BaseCommand):
                 first_name='Admin',
                 last_name='User',
                 is_admin=True,
-                voter_id='0000'
+                is_voter=False,  # Admin should not be a voter
+                voter_id=None  # No voter ID needed for admin
             )
             self.stdout.write(self.style.SUCCESS('Admin user created'))
         else:
@@ -62,7 +63,7 @@ class Command(BaseCommand):
             voter_id = f'{random.randint(1000, 9999)}'
             while User.objects.filter(voter_id=voter_id).exists():
                 voter_id = f'{random.randint(1000, 9999)}'
-                
+
             voter = User.objects.create_user(
                 username=f'voter{i+1}',
                 password='voter123',
@@ -80,7 +81,7 @@ class Command(BaseCommand):
         self.stdout.write(f'Creating {count} votings...')
         now = timezone.now()
         votings = []
-        
+
         # Create 2 active votings
         for i in range(2):
             voting = Voting.objects.create(
@@ -91,7 +92,7 @@ class Command(BaseCommand):
             )
             votings.append(voting)
             self.stdout.write(f'Created active voting: {voting.title}')
-        
+
         # Create 2 upcoming votings
         for i in range(2):
             voting = Voting.objects.create(
@@ -102,7 +103,7 @@ class Command(BaseCommand):
             )
             votings.append(voting)
             self.stdout.write(f'Created upcoming voting: {voting.title}')
-        
+
         # Create 2 completed votings
         for i in range(2):
             voting = Voting.objects.create(
@@ -113,22 +114,22 @@ class Command(BaseCommand):
             )
             votings.append(voting)
             self.stdout.write(f'Created completed voting: {voting.title}')
-        
+
         return votings
 
     def create_candidates(self, votings, candidates_per_voting):
         self.stdout.write(f'Creating {candidates_per_voting} candidates for each voting...')
-        
+
         # Create a simple default image for candidates
         img_path = os.path.join(settings.MEDIA_ROOT, 'candidate_photos')
         os.makedirs(img_path, exist_ok=True)
-        
+
         for voting in votings:
             for i in range(candidates_per_voting):
                 # Create a simple colored square as a candidate image
                 color = random.choice(['red', 'blue', 'green', 'purple', 'orange'])
                 img_content = self.generate_colored_image(color)
-                
+
                 candidate = Candidate.objects.create(
                     voting=voting,
                     name=f'Candidate {i+1} for {voting.title}',
@@ -141,10 +142,10 @@ class Command(BaseCommand):
         """Generate a simple colored PNG image"""
         from PIL import Image
         import io
-        
+
         # Create a 100x100 image with the specified color
         img = Image.new('RGB', (100, 100), color=color)
-        
+
         # Save to a bytes buffer
         buffer = io.BytesIO()
         img.save(buffer, format='PNG')
@@ -166,20 +167,20 @@ class Command(BaseCommand):
                 # Get all voters assigned to this voting
                 voting_voters = VotingVoter.objects.filter(voting=voting)
                 candidates = list(Candidate.objects.filter(voting=voting))
-                
+
                 if not candidates:
                     continue
-                
+
                 # For completed votings, have all voters vote
                 # For active votings, have some voters vote
                 voter_percentage = 1.0 if voting.has_ended() else 0.7
-                
+
                 for voting_voter in voting_voters:
                     # Randomly decide if this voter will vote (for active votings)
                     if voting.has_ended() or random.random() < voter_percentage:
                         # Select a random candidate
                         candidate = random.choice(candidates)
-                        
+
                         # Create the vote
                         Vote.objects.create(
                             voter=voting_voter.voter,

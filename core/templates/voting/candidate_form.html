@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load voting_extras %}
 
 {% block title %}
     {% if form.instance.pk %}Edit Candidate{% else %}Add Candidate{% endif %} - Voting System
@@ -79,11 +80,33 @@
                     </div>
                     {% endif %}
 
+                    {% if form.post %}
+                    <div class="mb-3">
+                        <label for="id_post" class="form-label">Post (Position)</label>
+                        {{ form.post }}
+                        {% if form.post.errors %}
+                            <div class="text-danger">
+                                {% for error in form.post.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
                     <div class="d-flex justify-content-between">
-                        {% if form.instance.pk %}
+                        {% if form.instance.pk and form.instance.voting %}
                             <a href="{% url 'voting_detail' form.instance.voting.id %}" class="btn btn-secondary">Cancel</a>
                         {% elif 'voting_pk' in view.kwargs %}
                             <a href="{% url 'voting_detail' view.kwargs.voting_pk %}" class="btn btn-secondary">Cancel</a>
+                        {% elif 'post_pk' in view.kwargs %}
+                            {% with post=view.kwargs.post_pk|get_post %}
+                                {% if post and post.voting %}
+                                    <a href="{% url 'voting_detail' post.voting.id %}" class="btn btn-secondary">Cancel</a>
+                                {% else %}
+                                    <a href="{% url 'candidate_list' %}" class="btn btn-secondary">Cancel</a>
+                                {% endif %}
+                            {% endwith %}
                         {% else %}
                             <a href="{% url 'candidate_list' %}" class="btn btn-secondary">Cancel</a>
                         {% endif %}

@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load voting_extras %}
 
 {% block title %}Results: {{ voting.title }} - Voting System{% endblock %}
 
@@ -53,10 +54,122 @@
             </div>
         </div>
 
-        {% if results %}
+        {% if posts or results_by_post.no_post %}
+            {% for post in posts %}
+                {% with post_results=results_by_post|default_if_none:{}|get:post %}
+                    {% if post_results %}
+                        <div class="card mb-4">
+                            <div class="card-header bg-info text-white">
+                                <h5 class="mb-0">Results for {{ post.title }}</h5>
+                            </div>
+                            <div class="card-body">
+                                <div class="table-responsive">
+                                    <table class="table table-striped">
+                                        <thead>
+                                            <tr>
+                                                <th>Candidate</th>
+                                                <th>Votes</th>
+                                                <th>Percentage</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {% with total_votes=post_results|length %}
+                                                {% for candidate in post_results %}
+                                                    {% with post_winners=results_by_post|get:post|add:"_winners" %}
+                                                        <tr {% if candidate in post_winners %}class="table-success"{% endif %}>
+                                                            <td>{{ candidate.name }}</td>
+                                                            <td>{{ candidate.vote_count }}</td>
+                                                            <td>
+                                                                {% if total_votes > 0 %}
+                                                                    {{ candidate.vote_count|floatformat:1 }}%
+                                                                {% else %}
+                                                                    0%
+                                                                {% endif %}
+                                                            </td>
+                                                        </tr>
+                                                    {% endwith %}
+                                                {% endfor %}
+                                            {% endwith %}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {% with post_winners=results_by_post|get:post|add:"_winners" %}
+                                    {% if post_winners %}
+                                        <div class="alert alert-success mt-3">
+                                            <h5>Winner{% if post_winners.count > 1 %}s{% endif %} for {{ post.title }}:</h5>
+                                            <ul class="mb-0">
+                                                {% for winner in post_winners %}
+                                                    <li>{{ winner.name }} ({{ winner.vote_count }} votes)</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </div>
+                                    {% endif %}
+                                {% endwith %}
+                            </div>
+                        </div>
+                    {% endif %}
+                {% endwith %}
+            {% endfor %}
+
+            {% with no_post_results=results_by_post.no_post %}
+                {% if no_post_results %}
+                    <div class="card mb-4">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">Results for General Candidates</h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="table-responsive">
+                                <table class="table table-striped">
+                                    <thead>
+                                        <tr>
+                                            <th>Candidate</th>
+                                            <th>Votes</th>
+                                            <th>Percentage</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {% with total_votes=no_post_results|length %}
+                                            {% for candidate in no_post_results %}
+                                                {% with no_post_winners=results_by_post.no_post_winners %}
+                                                    <tr {% if candidate in no_post_winners %}class="table-success"{% endif %}>
+                                                        <td>{{ candidate.name }}</td>
+                                                        <td>{{ candidate.vote_count }}</td>
+                                                        <td>
+                                                            {% if total_votes > 0 %}
+                                                                {{ candidate.vote_count|floatformat:1 }}%
+                                                            {% else %}
+                                                                0%
+                                                            {% endif %}
+                                                        </td>
+                                                    </tr>
+                                                {% endwith %}
+                                            {% endfor %}
+                                        {% endwith %}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {% with no_post_winners=results_by_post.no_post_winners %}
+                                {% if no_post_winners %}
+                                    <div class="alert alert-success mt-3">
+                                        <h5>Winner{% if no_post_winners.count > 1 %}s{% endif %} for General Candidates:</h5>
+                                        <ul class="mb-0">
+                                            {% for winner in no_post_winners %}
+                                                <li>{{ winner.name }} ({{ winner.vote_count }} votes)</li>
+                                            {% endfor %}
+                                        </ul>
+                                    </div>
+                                {% endif %}
+                            {% endwith %}
+                        </div>
+                    </div>
+                {% endif %}
+            {% endwith %}
+        {% elif results %}
             <div class="card">
                 <div class="card-header bg-info text-white">
-                    <h5 class="mb-0">Voting Results</h5>
+                    <h5 class="mb-0">Voting Results (All Candidates)</h5>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">

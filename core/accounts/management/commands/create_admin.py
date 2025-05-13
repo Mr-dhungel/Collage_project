@@ -15,12 +15,12 @@ class Command(BaseCommand):
         if User.objects.filter(is_superuser=True).exists():
             self.stdout.write(self.style.SUCCESS('Admin user already exists.'))
             return
-        
+
         # Create a new admin user
         admin_username = os.environ.get('ADMIN_USERNAME', 'admin')
         admin_password = os.environ.get('ADMIN_PASSWORD', 'admin123')
         admin_email = os.environ.get('ADMIN_EMAIL', 'admin@example.com')
-        
+
         User.objects.create(
             username=admin_username,
             password=make_password(admin_password),
@@ -29,7 +29,8 @@ class Command(BaseCommand):
             is_superuser=True,
             is_active=True,
             is_admin=True,
-            voter_id='0000'  # Default voter ID for admin
+            is_voter=False,  # Admin should not be a voter
+            voter_id=None  # No voter ID needed for admin
         )
-        
+
         self.stdout.write(self.style.SUCCESS(f"Admin user '{admin_username}' created successfully."))

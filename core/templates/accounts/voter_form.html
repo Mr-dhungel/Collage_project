@@ -125,6 +125,21 @@
                                         </div>
                                     {% endif %}
                                 </div>
+
+                                <div class="mb-3">
+                                    <div class="form-check">
+                                        {{ form.enable_facial_recognition }}
+                                        <label for="id_enable_facial_recognition" class="form-check-label">Enable Facial Recognition</label>
+                                        <div class="form-text">If enabled, you'll be prompted to register facial data after creating the voter.</div>
+                                    </div>
+                                    {% if form.enable_facial_recognition.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.enable_facial_recognition.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
                             {% endif %}
 
                             <div class="d-flex justify-content-between">

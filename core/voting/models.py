@@ -3,6 +3,25 @@ from django.conf import settings
 from django.utils import timezone
 import pytz
 
+class Post(models.Model):
+    """
+    Represents a position that candidates can run for in a voting event.
+
+    Examples include President, Vice President, Secretary, etc.
+    Each post belongs to a specific voting event.
+    """
+    voting = models.ForeignKey('Voting', on_delete=models.CASCADE, related_name='posts')
+    title = models.CharField(max_length=100)
+    description = models.TextField(blank=True, null=True)
+    order = models.PositiveIntegerField(default=0, help_text="Order in which this post appears in the voting form")
+
+    class Meta:
+        ordering = ['order', 'title']
+        unique_together = ('voting', 'title')
+
+    def __str__(self):
+        return f"{self.title} - {self.voting.title}"
+
 class Voting(models.Model):
     """
     Represents a voting event with a defined start and end time.
@@ -103,16 +122,22 @@ class Candidate(models.Model):
     """
     Represents a candidate in a voting.
 
-    Candidates are associated with a specific voting and can receive votes from voters.
+    Candidates can be associated with a specific voting and post, and can receive votes from voters.
     They can have a name, description, and optional photo.
+    Candidates can be created without assigning to a voting, and assigned later.
     """
-    voting = models.ForeignKey(Voting, on_delete=models.CASCADE, related_name='candidates')
+    voting = models.ForeignKey(Voting, on_delete=models.CASCADE, related_name='candidates', blank=True, null=True)
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='candidates', blank=True, null=True)
     name = models.CharField(max_length=100)
     description = models.TextField(blank=True, null=True)
     photo = models.ImageField(upload_to='candidate_photos/', blank=True, null=True)
 
     def __str__(self):
-        return f"{self.name} - {self.voting.title}"
+        if self.voting and self.post:
+            return f"{self.name} - {self.post.title} - {self.voting.title}"
+        elif self.voting:
+            return f"{self.name} - {self.voting.title} (No post assigned)"
+        return f"{self.name} - (No voting or post assigned)"
 
     def vote_count(self):
         """
@@ -205,16 +230,22 @@ class Vote(models.Model):
     """
     Represents a vote cast by a voter for a candidate in a voting.
 
-    Each voter can only vote once in each voting. The vote records
-    which candidate was selected and when the vote was cast.
+    Each voter can vote for one candidate per post in each voting. The vote records
+    which candidate was selected for which post and when the vote was cast.
     """
     voter = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='votes')
     candidate = models.ForeignKey(Candidate, on_delete=models.CASCADE, related_name='votes')
     voting = models.ForeignKey(Voting, on_delete=models.CASCADE, related_name='votes')
+    post = models.ForeignKey(Post, on_delete=models.CASCADE, related_name='votes', blank=True, null=True)
     timestamp = models.DateTimeField(auto_now_add=True)
 
     class Meta:
-        unique_together = ('voter', 'voting')
+        # This will ensure a voter can only vote once for each post in a voting
+        # If post is null, it will be treated as a separate unique value
+        unique_together = ('voter', 'voting', 'post')
 
     def __str__(self):
-        return f"{self.voter.username} voted for {self.candidate.name} in {self.voting.title}"
+        if self.post:
+            return f"{self.voter.username} voted for {self.candidate.name} for {self.post.title} in {self.voting.title}"
+        else:
+            return f"{self.voter.username} voted for {self.candidate.name} in {self.voting.title}"

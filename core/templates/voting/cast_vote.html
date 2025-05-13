@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load voting_extras %}
 
 {% block title %}Cast Vote - {{ voting.title }} - Voting System{% endblock %}
 
@@ -11,10 +12,21 @@
             </div>
             <div class="card-body">
                 <p class="lead">{{ voting.description }}</p>
-                
+
+                {% if voted_posts %}
+                <div class="alert alert-info mb-4">
+                    <h5>You have already voted for the following positions:</h5>
+                    <ul>
+                        {% for post in voted_posts %}
+                            <li>{{ post.title }}</li>
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
                 <form method="post">
                     {% csrf_token %}
-                    
+
                     {% if form.non_field_errors %}
                         <div class="alert alert-danger">
                             {% for error in form.non_field_errors %}
@@ -22,37 +34,57 @@
                             {% endfor %}
                         </div>
                     {% endif %}
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Select a Candidate</label>
-                        <div class="list-group">
-                            {% for radio in form.candidate %}
-                                <label class="list-group-item">
-                                    {{ radio.tag }}
-                                    <span class="ms-2">{{ radio.choice_label }}</span>
-                                </label>
-                            {% endfor %}
-                        </div>
-                        {% if form.candidate.errors %}
-                            <div class="text-danger">
-                                {% for error in form.candidate.errors %}
-                                    {{ error }}
-                                {% endfor %}
+
+                    {% for field_name, field in form.fields.items %}
+                        {% if field_name != 'post' and field.widget.attrs.type != 'hidden' %}
+                            <div class="card mb-4">
+                                <div class="card-header bg-info text-white">
+                                    <h5 class="mb-0">{{ field.label }}</h5>
+                                </div>
+                                <div class="card-body">
+                                    <div class="list-group">
+                                        {% for radio in form|getattribute:field_name %}
+                                            <label class="list-group-item">
+                                                {{ radio.tag }}
+                                                <span class="ms-2">{{ radio.choice_label }}</span>
+                                            </label>
+                                        {% endfor %}
+                                    </div>
+                                    {% if field.errors %}
+                                        <div class="text-danger mt-2">
+                                            {% for error in field.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
                             </div>
                         {% endif %}
-                    </div>
-                    
+                    {% endfor %}
+
                     <div class="alert alert-warning">
-                        <strong>Important:</strong> Your vote is final and cannot be changed once submitted.
+                        <strong>Important:</strong> Your votes are final and cannot be changed once submitted.
                     </div>
-                    
+
                     <div class="d-flex justify-content-between">
                         <a href="{% url 'voting_detail' voting.id %}" class="btn btn-secondary">Cancel</a>
-                        <button type="submit" class="btn btn-primary">Submit Vote</button>
+                        <button type="submit" class="btn btn-primary">Submit Votes</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Custom template filter to get attribute
+    if (!window.django) {
+        window.django = {};
+    }
+    django.getattribute = function(obj, attr) {
+        return obj[attr];
+    };
+</script>
 {% endblock %}

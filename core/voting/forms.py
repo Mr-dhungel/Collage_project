@@ -1,7 +1,7 @@
 from django import forms
 from django.utils import timezone
 import pytz
-from .models import Voting, Candidate, Vote, VotingVoter
+from .models import Voting, Candidate, Vote, VotingVoter, Post
 from accounts.models import User
 
 class VotingForm(forms.ModelForm):
@@ -49,13 +49,14 @@ class VotingForm(forms.ModelForm):
 
         return cleaned_data
 
-class CandidateForm(forms.ModelForm):
+class PostForm(forms.ModelForm):
     class Meta:
-        model = Candidate
-        fields = ['name', 'description', 'photo', 'voting']
+        model = Post
+        fields = ['title', 'description', 'order', 'voting']
         widgets = {
-            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'title': forms.TextInput(attrs={'class': 'form-control'}),
             'description': forms.Textarea(attrs={'class': 'form-control'}),
+            'order': forms.NumberInput(attrs={'class': 'form-control'}),
             'voting': forms.Select(attrs={'class': 'form-control'}),
         }
 
@@ -63,7 +64,7 @@ class CandidateForm(forms.ModelForm):
         voting_pk = kwargs.pop('voting_pk', None)
         super().__init__(*args, **kwargs)
 
-        # If we're creating a candidate for a specific voting
+        # If we're creating a post for a specific voting
         if voting_pk:
             self.fields['voting'].initial = voting_pk
             self.fields['voting'].widget = forms.HiddenInput()
@@ -74,19 +75,68 @@ class CandidateForm(forms.ModelForm):
                 end_time__gte=timezone.now()
             )
 
+class CandidateForm(forms.ModelForm):
+    class Meta:
+        model = Candidate
+        fields = ['name', 'description', 'photo', 'voting', 'post']
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-control'}),
+            'description': forms.Textarea(attrs={'class': 'form-control'}),
+            'voting': forms.Select(attrs={'class': 'form-control'}),
+            'post': forms.Select(attrs={'class': 'form-control'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        voting_pk = kwargs.pop('voting_pk', None)
+        post_pk = kwargs.pop('post_pk', None)
+        super().__init__(*args, **kwargs)
+
+        # Make voting field optional
+        self.fields['voting'].required = False
+        self.fields['post'].required = False
+
+        # If we're creating a candidate for a specific voting
+        if voting_pk:
+            self.fields['voting'].initial = voting_pk
+            self.fields['voting'].widget = forms.HiddenInput()
+
+            # Filter posts by the selected voting
+            self.fields['post'].queryset = Post.objects.filter(voting_id=voting_pk)
+        else:
+            # Only show active and upcoming votings in the dropdown
+            from django.utils import timezone
+            self.fields['voting'].queryset = Voting.objects.filter(
+                end_time__gte=timezone.now()
+            )
+            # Add an empty option
+            self.fields['voting'].empty_label = "-- Select a voting (optional) --"
+            self.fields['post'].empty_label = "-- Select a post (optional) --"
+
+        # If we're creating a candidate for a specific post
+        if post_pk:
+            self.fields['post'].initial = post_pk
+            self.fields['post'].widget = forms.HiddenInput()
+
 class VoteForm(forms.ModelForm):
     class Meta:
         model = Vote
-        fields = ['candidate']
+        fields = ['candidate', 'post']
         widgets = {
             'candidate': forms.RadioSelect(),
+            'post': forms.HiddenInput(),
         }
 
     def __init__(self, *args, **kwargs):
         voting = kwargs.pop('voting', None)
+        post = kwargs.pop('post', None)
         super().__init__(*args, **kwargs)
-        if voting:
+
+        if voting and post:
+            self.fields['post'].initial = post.id
+            self.fields['candidate'].queryset = Candidate.objects.filter(voting=voting, post=post)
+        elif voting:
             self.fields['candidate'].queryset = Candidate.objects.filter(voting=voting)
+            self.fields['post'].required = False
 
 class VotingVoterForm(forms.ModelForm):
     voters = forms.ModelMultipleChoiceField(
@@ -120,3 +170,29 @@ class VotingVoterForm(forms.ModelForm):
                 VotingVoter.objects.create(voting=voting, voter=voter)
 
         return voting
+
+class MultiPostVoteForm(forms.Form):
+    """
+    A form for handling votes for multiple posts in a single voting.
+    This form is dynamically generated based on the posts available in a voting.
+    """
+
+    def __init__(self, *args, **kwargs):
+        voting = kwargs.pop('voting', None)
+        super().__init__(*args, **kwargs)
+
+        if voting:
+            # Get all posts for this voting
+            posts = Post.objects.filter(voting=voting).order_by('order', 'title')
+
+            # Create a field for each post
+            for post in posts:
+                field_name = f'post_{post.id}'
+                candidates = Candidate.objects.filter(voting=voting, post=post)
+
+                self.fields[field_name] = forms.ModelChoiceField(
+                    queryset=candidates,
+                    widget=forms.RadioSelect,
+                    label=post.title,
+                    required=False
+                )

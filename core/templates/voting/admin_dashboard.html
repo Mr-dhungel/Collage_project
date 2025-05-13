@@ -9,8 +9,21 @@
         <p class="text-muted">Current time: <span id="current-time">Loading...</span></p>
     </div>
     <div>
+        {% if request.user.can_manage_votings or request.user.is_superuser %}
         <a href="{% url 'voting_create' %}" class="btn btn-primary me-2">Create New Voting</a>
-        <a href="{% url 'voter_list' %}" class="btn btn-outline-primary">Manage Voters</a>
+        {% endif %}
+
+        {% if request.user.can_manage_voters or request.user.is_superuser %}
+        <a href="{% url 'voter_list' %}" class="btn btn-outline-primary me-2">Manage Voters</a>
+        {% endif %}
+
+        {% if request.user.can_manage_candidates or request.user.is_superuser %}
+        <a href="{% url 'candidate_list' %}" class="btn btn-outline-info me-2">Manage Candidates</a>
+        {% endif %}
+
+        {% if request.user.is_superuser %}
+        <a href="{% url 'admin_list' %}" class="btn btn-outline-secondary">Manage Admins</a>
+        {% endif %}
     </div>
 </div>
 

@@ -21,4 +21,8 @@ python manage.py migrate
 echo "Creating admin user..."
 python manage.py create_admin
 
+# Fix admin users to ensure they are not voters
+echo "Fixing admin users..."
+python manage.py fix_admin_users
+
 echo "Release process completed successfully."

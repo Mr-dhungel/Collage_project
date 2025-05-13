@@ -45,7 +45,8 @@ def create_admin_user():
             is_superuser=True,
             is_active=True,
             is_admin=True,
-            voter_id='0000'  # Default voter ID for admin
+            is_voter=False,  # Admin should not be a voter
+            voter_id=None  # No voter ID needed for admin
         )
 
         print(f"Admin user '{admin_username}' created successfully.")
