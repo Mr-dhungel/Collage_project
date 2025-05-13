@@ -591,13 +591,28 @@ def verify_voter_face(request, user_id):
 
                 # Check if recognized
                 if recognized_id == user.voter_id:
-                    # Check confidence threshold
-                    if confidence < 0.5:  # Adjust this threshold as needed
-                        return JsonResponse({
-                            'success': False,
-                            'error': 'Low confidence match. Please try again with better lighting and positioning.',
-                            'confidence': float(confidence)
-                        })
+                    # Import the USING_ADVANCED flag to check which implementation is being used
+                    from facial_recognition import USING_ADVANCED
+
+                    # Check confidence threshold based on which implementation is being used
+                    if USING_ADVANCED:
+                        # For advanced implementation, higher scores are better (0.0 to 1.0)
+                        # A score of 0.94 (94%) is excellent
+                        if confidence < 0.7:  # Threshold for advanced implementation
+                            return JsonResponse({
+                                'success': False,
+                                'error': f'Low confidence match ({confidence:.1%}). Please try again with better lighting and positioning.',
+                                'confidence': float(confidence)
+                            })
+                    else:
+                        # For basic implementation, lower scores are better (0.0 to 1.0)
+                        # But the confidence is returned as 1.0 - score, so higher is better
+                        if confidence < 0.5:  # Threshold for basic implementation
+                            return JsonResponse({
+                                'success': False,
+                                'error': f'Low confidence match ({confidence:.1%}). Please try again with better lighting and positioning.',
+                                'confidence': float(confidence)
+                            })
 
                     # Log the user in
                     user.backend = 'django.contrib.auth.backends.ModelBackend'
@@ -614,11 +629,22 @@ def verify_voter_face(request, user_id):
                         'redirect_url': reverse_lazy('home')
                     })
                 else:
-                    # Check if it's a close match
-                    if confidence > 0.3:  # Adjust this threshold as needed
-                        error_message = 'Face verification failed with a close match. Please try again with better lighting and positioning.'
+                    # Import the USING_ADVANCED flag to check which implementation is being used
+                    from facial_recognition import USING_ADVANCED
+
+                    # Check if it's a close match based on which implementation is being used
+                    if USING_ADVANCED:
+                        # For advanced implementation, higher scores are better
+                        if confidence > 0.5:  # Higher threshold for "close match" with advanced implementation
+                            error_message = f'Face verification failed with a close match ({confidence:.1%}). Please try again with better lighting and positioning.'
+                        else:
+                            error_message = 'Face verification failed. The face does not match our records.'
                     else:
-                        error_message = 'Face verification failed. The face does not match our records.'
+                        # For basic implementation, confidence is returned as 1.0 - score, so higher is better
+                        if confidence > 0.3:  # Threshold for basic implementation
+                            error_message = f'Face verification failed with a close match ({confidence:.1%}). Please try again with better lighting and positioning.'
+                        else:
+                            error_message = 'Face verification failed. The face does not match our records.'
 
                     return JsonResponse({
                         'success': False,

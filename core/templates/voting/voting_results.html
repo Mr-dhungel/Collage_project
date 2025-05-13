@@ -56,7 +56,7 @@
 
         {% if posts or results_by_post.no_post %}
             {% for post in posts %}
-                {% with post_results=results_by_post|default_if_none:{}|get:post %}
+                {% with post_results=results_by_post|default_if_none:"{}"|get_item:post %}
                     {% if post_results %}
                         <div class="card mb-4">
                             <div class="card-header bg-info text-white">
@@ -75,7 +75,7 @@
                                         <tbody>
                                             {% with total_votes=post_results|length %}
                                                 {% for candidate in post_results %}
-                                                    {% with post_winners=results_by_post|get:post|add:"_winners" %}
+                                                    {% with post_winners=results_by_post|get_item:post|add:"_winners" %}
                                                         <tr {% if candidate in post_winners %}class="table-success"{% endif %}>
                                                             <td>{{ candidate.name }}</td>
                                                             <td>{{ candidate.vote_count }}</td>
@@ -94,7 +94,7 @@
                                     </table>
                                 </div>
 
-                                {% with post_winners=results_by_post|get:post|add:"_winners" %}
+                                {% with post_winners=results_by_post|get_item:post|add:"_winners" %}
                                     {% if post_winners %}
                                         <div class="alert alert-success mt-3">
                                             <h5>Winner{% if post_winners.count > 1 %}s{% endif %} for {{ post.title }}:</h5>
