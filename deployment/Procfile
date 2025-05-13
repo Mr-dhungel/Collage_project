@@ -1,1 +1,1 @@
-web: gunicorn voting_system.wsgi --log-file -
+web: cd core && gunicorn voting_system.wsgi --log-file -
