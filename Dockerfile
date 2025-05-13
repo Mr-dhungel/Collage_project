@@ -11,7 +11,15 @@ WORKDIR /app
 # Install system dependencies
 COPY apt.txt .
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends $(cat apt.txt) && \
+    apt-get install -y --no-install-recommends \
+    python3-dev python3-pip libsm6 libxext6 libxrender-dev libglib2.0-0 \
+    libgl1-mesa-glx libgl1 libglu1-mesa libglu1 libpq-dev build-essential \
+    cmake pkg-config libx11-dev libatlas-base-dev libgtk-3-dev libgtk2.0-dev \
+    libboost-python-dev libjpeg-dev libpng-dev libtiff-dev ffmpeg \
+    libavcodec-dev libavformat-dev libswscale-dev libv4l-dev libxvidcore-dev \
+    libx264-dev libfontconfig1-dev libcairo2-dev libgdk-pixbuf2.0-dev \
+    libpango1.0-dev libhdf5-dev libhdf5-serial-dev libhdf5-103 \
+    libeigen3-dev libopenblas-dev liblapack-dev && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
