@@ -4,19 +4,31 @@ libsm6
 libxext6
 libxrender-dev
 libglib2.0-0
+# OpenGL libraries - critical for OpenCV
 libgl1-mesa-glx
 libgl1
+libglu1-mesa
+libglu1
+# PostgreSQL development libraries
 libpq-dev
+# Build tools
 build-essential
 cmake
 pkg-config
+# X11 development libraries
 libx11-dev
+# Math libraries
 libatlas-base-dev
+# GTK libraries for GUI
 libgtk-3-dev
+libgtk2.0-dev
+# Python development
 libboost-python-dev
+# Image format libraries
 libjpeg-dev
 libpng-dev
 libtiff-dev
+# Video processing
 ffmpeg
 libavcodec-dev
 libavformat-dev
@@ -24,10 +36,16 @@ libswscale-dev
 libv4l-dev
 libxvidcore-dev
 libx264-dev
+# Font and rendering libraries
 libfontconfig1-dev
 libcairo2-dev
 libgdk-pixbuf2.0-dev
 libpango1.0-dev
+# HDF5 libraries for large datasets
 libhdf5-dev
 libhdf5-serial-dev
 libhdf5-103
+# Additional OpenCV dependencies
+libeigen3-dev
+libopenblas-dev
+liblapack-dev

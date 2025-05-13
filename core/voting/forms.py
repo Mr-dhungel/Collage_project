@@ -1,6 +1,7 @@
 from django import forms
 from django.utils import timezone
 import pytz
+from django.db import models
 from .models import Voting, Candidate, Vote, VotingVoter, Post
 from accounts.models import User
 
@@ -116,6 +117,40 @@ class CandidateForm(forms.ModelForm):
         if post_pk:
             self.fields['post'].initial = post_pk
             self.fields['post'].widget = forms.HiddenInput()
+
+class ExistingCandidateForm(forms.Form):
+    """
+    Form for adding existing candidates to a position.
+    """
+    candidates = forms.ModelMultipleChoiceField(
+        queryset=Candidate.objects.none(),
+        widget=forms.CheckboxSelectMultiple(attrs={'class': 'candidate-checkbox'}),
+        required=False,
+        label="Select Existing Candidates"
+    )
+
+    def __init__(self, *args, **kwargs):
+        voting_pk = kwargs.pop('voting_pk', None)
+        post_pk = kwargs.pop('post_pk', None)
+        super().__init__(*args, **kwargs)
+
+        if voting_pk and post_pk:
+            try:
+                # Get the post and voting
+                post = Post.objects.get(pk=post_pk)
+                voting = Voting.objects.get(pk=voting_pk)
+
+                # Get candidates that are not already assigned to this post
+                # but are either unassigned or assigned to this voting
+                self.fields['candidates'].queryset = Candidate.objects.filter(
+                    models.Q(voting=voting, post__isnull=True) |  # Candidates in this voting with no post
+                    models.Q(voting__isnull=True)  # Unassigned candidates
+                ).exclude(
+                    post=post  # Exclude candidates already in this post
+                ).order_by('name')
+            except (Post.DoesNotExist, Voting.DoesNotExist):
+                # Handle the case where the post or voting doesn't exist
+                self.fields['candidates'].queryset = Candidate.objects.none()
 
 class VoteForm(forms.ModelForm):
     class Meta:

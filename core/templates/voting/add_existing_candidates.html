@@ -1,0 +1,100 @@
+{% extends 'base.html' %}
+{% load voting_extras %}
+
+{% block title %}Add Existing Candidates to {{ post.title }} - Voting System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Add Existing Candidates to {{ post.title }}</h4>
+            </div>
+            <div class="card-body">
+                <p class="mb-3">
+                    <strong>Voting:</strong> {{ voting.title }}<br>
+                    <strong>Position:</strong> {{ post.title }}
+                </p>
+
+                {% if candidates_available %}
+                    <form method="post">
+                        {% csrf_token %}
+
+                        {% if form.non_field_errors %}
+                            <div class="alert alert-danger">
+                                {% for error in form.non_field_errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+
+                        <div class="mb-3">
+                            <label class="form-label">{{ form.candidates.label }}</label>
+                            <div class="candidate-list">
+                                {% for candidate in form.candidates %}
+                                    <div class="candidate-item form-check mb-2">
+                                        {{ candidate }}
+                                        <label class="form-check-label" for="{{ candidate.id_for_label }}">
+                                            {{ candidate.choice_label }}
+                                            {% with candidate_obj=candidate.choice_value|get_candidate %}
+                                                {% if candidate_obj.photo %}
+                                                    <img src="{{ candidate_obj.photo_url }}" alt="{{ candidate_obj.name }}" class="img-thumbnail" style="max-height: 50px; max-width: 50px; margin-left: 10px;">
+                                                {% endif %}
+                                                {% if candidate_obj.voting %}
+                                                    <span class="badge bg-info ms-2">{{ candidate_obj.voting.title }}</span>
+                                                {% else %}
+                                                    <span class="badge bg-secondary ms-2">Unassigned</span>
+                                                {% endif %}
+                                            {% endwith %}
+                                        </label>
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            {% if form.candidates.errors %}
+                                <div class="text-danger">
+                                    {% for error in form.candidates.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'voting_detail' voting.id %}" class="btn btn-secondary">Cancel</a>
+                            <button type="submit" class="btn btn-primary">Add Selected Candidates</button>
+                        </div>
+                    </form>
+                {% else %}
+                    <div class="alert alert-info">
+                        <p>No existing candidates are available to add to this position.</p>
+                        <p>You can create a new candidate for this position instead.</p>
+                    </div>
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'voting_detail' voting.id %}" class="btn btn-secondary">Back to Voting</a>
+                        <a href="{% url 'candidate_create_for_voting_post' voting_pk=voting.id post_pk=post.id %}" class="btn btn-primary">Create New Candidate</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_css %}
+<style>
+    .candidate-list {
+        max-height: 400px;
+        overflow-y: auto;
+        border: 1px solid #dee2e6;
+        border-radius: 0.25rem;
+        padding: 1rem;
+    }
+    .candidate-item {
+        padding: 0.5rem;
+        border-bottom: 1px solid #f0f0f0;
+    }
+    .candidate-item:last-child {
+        border-bottom: none;
+    }
+</style>
+{% endblock %}

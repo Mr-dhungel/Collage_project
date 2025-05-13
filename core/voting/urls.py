@@ -26,6 +26,7 @@ urlpatterns = [
     path('votings/<int:voting_pk>/candidates/add/', views.CandidateCreateView.as_view(), name='candidate_create'),
     path('posts/<int:post_pk>/candidates/add/', views.CandidateCreateView.as_view(), name='candidate_create_for_post'),
     path('votings/<int:voting_pk>/posts/<int:post_pk>/candidates/add/', views.CandidateCreateView.as_view(), name='candidate_create_for_voting_post'),
+    path('votings/<int:voting_pk>/posts/<int:post_pk>/candidates/add-existing/', views.AddExistingCandidatesView.as_view(), name='add_existing_candidates'),
     path('candidates/<int:pk>/edit/', views.CandidateUpdateView.as_view(), name='candidate_update'),
     path('candidates/<int:pk>/delete/', views.CandidateDeleteView.as_view(), name='candidate_delete'),
 

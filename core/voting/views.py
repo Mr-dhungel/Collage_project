@@ -2,15 +2,15 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.urls import reverse_lazy
-from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View
+from django.views.generic import ListView, DetailView, CreateView, UpdateView, DeleteView, View, FormView
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.utils import timezone
 from django.db.models import Count
 from django.db import connection
 
 from .models import Voting, Candidate, Vote, VotingVoter, Post
-from .forms import VotingForm, CandidateForm, VoteForm, VotingVoterForm, PostForm, MultiPostVoteForm
-from accounts.views import AdminRequiredMixin
+from .forms import VotingForm, CandidateForm, VoteForm, VotingVoterForm, PostForm, MultiPostVoteForm, ExistingCandidateForm
+from accounts.mixins import AdminRequiredMixin, VoterRequiredMixin
 
 @login_required
 def home(request):
@@ -333,6 +333,91 @@ class CandidateDeleteView(LoginRequiredMixin, AdminRequiredMixin, DeleteView):
     def delete(self, request, *args, **kwargs):
         messages.success(self.request, "Candidate deleted successfully!")
         return super().delete(request, *args, **kwargs)
+
+class AddExistingCandidatesView(LoginRequiredMixin, AdminRequiredMixin, FormView):
+    """
+    View for adding existing candidates to a position.
+    """
+    template_name = 'voting/add_existing_candidates.html'
+    form_class = ExistingCandidateForm
+
+    def get_voting(self):
+        """Get the voting object based on the URL parameter"""
+        voting_pk = self.kwargs.get('voting_pk')
+        return get_object_or_404(Voting, pk=voting_pk)
+
+    def get_post(self):
+        """Get the post object based on the URL parameter"""
+        post_pk = self.kwargs.get('post_pk')
+        return get_object_or_404(Post, pk=post_pk)
+
+    def dispatch(self, request, *args, **kwargs):
+        # Check if the admin has permission to manage candidates
+        if request.user.is_admin and not request.user.can_manage_candidates and not request.user.is_superuser:
+            messages.error(request, "You don't have permission to manage candidates.")
+            return redirect('admin_dashboard')
+
+        # Check if voting and post exist
+        try:
+            self.get_voting()
+            self.get_post()
+        except:
+            messages.error(request, "The specified voting or position does not exist.")
+            return redirect('voting_list')
+
+        # Call the parent class's dispatch method using the correct syntax
+        return super().dispatch(request, *args, **kwargs)
+
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['voting_pk'] = self.kwargs.get('voting_pk')
+        kwargs['post_pk'] = self.kwargs.get('post_pk')
+        return kwargs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['voting'] = self.get_voting()
+        context['post'] = self.get_post()
+
+        # Check if there are any candidates available to add
+        try:
+            candidates_available = self.form_class(
+                voting_pk=self.kwargs.get('voting_pk'),
+                post_pk=self.kwargs.get('post_pk')
+            ).fields['candidates'].queryset.exists()
+        except Exception:
+            candidates_available = False
+
+        context['candidates_available'] = candidates_available
+        return context
+
+    def form_valid(self, form):
+        selected_candidates = form.cleaned_data.get('candidates', [])
+        voting = self.get_voting()
+        post = self.get_post()
+
+        if not selected_candidates:
+            messages.info(self.request, "No candidates were selected.")
+            return super().form_valid(form)
+
+        # Assign the selected candidates to the post
+        for candidate in selected_candidates:
+            # If candidate has no voting, assign it to this voting
+            if not candidate.voting:
+                candidate.voting = voting
+
+            # Assign the post
+            candidate.post = post
+            candidate.save()
+
+        messages.success(
+            self.request,
+            f"{len(selected_candidates)} candidate{'s' if len(selected_candidates) > 1 else ''} added to {post.title}."
+        )
+        return super().form_valid(form)
+
+    def get_success_url(self):
+        return reverse_lazy('voting_detail', kwargs={'pk': self.kwargs.get('voting_pk')})
 
 class VotingVoterUpdateView(LoginRequiredMixin, AdminRequiredMixin, UpdateView):
     model = Voting

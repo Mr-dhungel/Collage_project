@@ -1,6 +1,6 @@
 from django import template
 from django.shortcuts import get_object_or_404
-from voting.models import Post
+from voting.models import Post, Candidate
 
 register = template.Library()
 
@@ -50,3 +50,14 @@ def default_if_none(value, default):
     if value is None:
         return default
     return value
+
+@register.filter
+def get_candidate(candidate_id):
+    """
+    Get a candidate by ID.
+    Usage: {{ candidate_id|get_candidate }}
+    """
+    try:
+        return get_object_or_404(Candidate, pk=candidate_id)
+    except:
+        return None
