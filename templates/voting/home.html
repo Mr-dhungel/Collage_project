@@ -1,0 +1,191 @@
+{% extends 'base.html' %}
+
+{% block title %}My Votings - Voting System{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h2>Welcome, {{ user.first_name }} {{ user.last_name }}</h2>
+    <p class="text-muted">Current time: <span id="current-time">Loading...</span></p>
+</div>
+
+{% if active_votings %}
+    <h3 class="mb-3">Active Votings</h3>
+    <div class="row">
+        {% for voting in active_votings %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="mb-0">{{ voting.title }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ voting.description|truncatewords:20 }}</p>
+                        <p><strong>Ends:</strong>
+                            <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                {{ voting.end_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </p>
+
+                        {% if voting in voted_votings %}
+                            <div class="alert alert-info">You have already voted in this election.</div>
+                        {% else %}
+                            <div class="alert alert-success">
+                                This voting is active until
+                                <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                    {{ voting.end_time|date:"F j, Y, g:i a" }}
+                                </span>.
+                                <br>
+                                <strong>Time remaining:</strong> <span class="countdown" data-end-time="{{ voting.end_time.isoformat }}">Calculating...</span>
+                            </div>
+                            <a href="{% url 'cast_vote' voting_pk=voting.id %}" class="btn btn-primary">Cast Your Vote</a>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-info">You have no active votings at the moment.</div>
+{% endif %}
+
+{% if upcoming_votings %}
+    <h3 class="mb-3 mt-4">Upcoming Votings</h3>
+    <div class="row">
+        {% for voting in upcoming_votings %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-info text-white">
+                        <h5 class="mb-0">{{ voting.title }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ voting.description|truncatewords:20 }}</p>
+                        <p><strong>Starts:</strong>
+                            <span class="local-time" data-utc-time="{{ voting.start_time.isoformat }}">
+                                {{ voting.start_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </p>
+                        <p><strong>Ends:</strong>
+                            <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                {{ voting.end_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% endif %}
+
+<div class="alert alert-info mt-4">
+    <h5>Looking for completed voting results?</h5>
+    <p>All voting results are publicly available after the voting has ended. You can view them on the <a href="{% url 'public_results' %}" class="alert-link">Results Page</a>.</p>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Function to update the current time
+    function updateCurrentTime() {
+        const currentTimeElement = document.getElementById('current-time');
+        if (currentTimeElement) {
+            // Get current time using Moment.js
+            const now = moment();
+            // Format it as desired
+            currentTimeElement.textContent = now.format('MMMM D, YYYY, h:mm:ss a');
+            // Update every second
+            setTimeout(updateCurrentTime, 1000);
+        }
+    }
+
+    // Function to update all countdown timers
+    function updateCountdowns() {
+        const countdownElements = document.querySelectorAll('.countdown');
+
+        countdownElements.forEach(element => {
+            const endTimeStr = element.getAttribute('data-end-time');
+            if (endTimeStr) {
+                const endTime = moment(endTimeStr);
+                const now = moment();
+                const duration = moment.duration(endTime.diff(now));
+
+                if (duration.asSeconds() <= 0) {
+                    // Voting has ended
+                    element.textContent = "Voting has ended";
+                    element.classList.add('text-danger');
+                    // Reload the page to update status
+                    location.reload();
+                } else {
+                    // Format the remaining time
+                    const days = Math.floor(duration.asDays());
+                    const hours = duration.hours();
+                    const minutes = duration.minutes();
+                    const seconds = duration.seconds();
+
+                    let timeStr = '';
+                    if (days > 0) {
+                        timeStr += `${days}d `;
+                    }
+                    timeStr += `${hours}h ${minutes}m ${seconds}s`;
+
+                    element.textContent = timeStr;
+                }
+            }
+        });
+
+        // Update every second
+        setTimeout(updateCountdowns, 1000);
+    }
+
+    // Function to check if any voting sections need to be updated
+    function checkSectionChanges() {
+        let needsReload = false;
+        const now = moment();
+
+        // Check active votings
+        document.querySelectorAll('.active-voting').forEach(card => {
+            const endTimeEl = card.querySelector('span[data-utc-time]');
+            if (endTimeEl) {
+                const endTime = moment(endTimeEl.getAttribute('data-utc-time'));
+                if (now > endTime) {
+                    needsReload = true;
+                }
+            }
+        });
+
+        // Check upcoming votings
+        document.querySelectorAll('.upcoming-voting').forEach(card => {
+            const startTimeEl = card.querySelector('span[data-utc-time]');
+            if (startTimeEl) {
+                const startTime = moment(startTimeEl.getAttribute('data-utc-time'));
+                if (now >= startTime) {
+                    needsReload = true;
+                }
+            }
+        });
+
+        // Reload if needed
+        if (needsReload) {
+            location.reload();
+        } else {
+            // Check again in 10 seconds
+            setTimeout(checkSectionChanges, 10000);
+        }
+    }
+
+    // Start the clock, countdowns, and status checks when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        updateCurrentTime();
+        updateCountdowns();
+
+        // Add classes to cards for status checking
+        document.querySelectorAll('.card-header.bg-primary').forEach(header => {
+            header.closest('.card').classList.add('active-voting');
+        });
+        document.querySelectorAll('.card-header.bg-info').forEach(header => {
+            header.closest('.card').classList.add('upcoming-voting');
+        });
+
+        // Start checking for status changes after 5 seconds
+        setTimeout(checkSectionChanges, 5000);
+    });
+</script>
+{% endblock %}

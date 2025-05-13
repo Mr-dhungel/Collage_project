@@ -1,0 +1,343 @@
+{% extends 'base.html' %}
+
+{% block title %}Register Face - {{ voter.first_name }} {{ voter.last_name }}{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="container">
+    <div class="row mb-4">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header bg-primary text-white">
+                    <h4 class="mb-0">Register Face for {{ voter.first_name }} {{ voter.last_name }}</h4>
+                </div>
+                <div class="card-body">
+                    <div class="alert alert-info">
+                        <strong>Instructions:</strong> Please capture 5 different face images to create a robust facial recognition profile.
+                        Try to capture from different angles and with different expressions for better recognition.
+                    </div>
+
+                    <div id="errorAlert" class="alert alert-danger d-none">
+                        <strong>Error:</strong> <span id="errorMessage"></span>
+                    </div>
+
+                    <div id="warningAlert" class="alert alert-warning d-none">
+                        <strong>Warning:</strong> <span id="warningMessage"></span>
+                    </div>
+
+                    <div class="progress mb-3">
+                        <div id="captureProgress" class="progress-bar" role="progressbar" style="width: 0%;"
+                            aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0/5</div>
+                    </div>
+
+                    <div id="cameraSection" class="mb-3">
+                        <div class="text-center mb-2">
+                            <video id="video" width="400" height="300" class="border" autoplay></video>
+                        </div>
+                        <div class="text-center mb-2">
+                            <button type="button" id="captureBtn" class="btn btn-primary">Capture Image</button>
+                        </div>
+                        <canvas id="canvas" width="400" height="300" class="d-none"></canvas>
+                    </div>
+
+                    <div id="previewsContainer" class="row mb-3">
+                        <!-- Captured images will be displayed here -->
+                    </div>
+
+                    <div class="d-flex justify-content-between">
+                        <a href="{% url 'voter_list' %}" class="btn btn-secondary">Cancel</a>
+                        <button id="saveBtn" class="btn btn-success" disabled>Save Face Data</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Variables
+    let stream = null;
+    let capturedImages = [];
+    const requiredSamples = 5;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    // DOM elements
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('captureBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const previewsContainer = document.getElementById('previewsContainer');
+    const progressBar = document.getElementById('captureProgress');
+
+    // Start camera
+    function startCamera() {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(mediaStream) {
+                    stream = mediaStream;
+                    video.srcObject = stream;
+                })
+                .catch(function(error) {
+                    console.error("Error accessing camera:", error);
+                    alert("Error accessing camera: " + error.message);
+                });
+        } else {
+            alert("Your browser does not support camera access");
+        }
+    }
+
+    // Stop camera
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    // Show error message
+    function showError(message) {
+        const errorAlert = document.getElementById('errorAlert');
+        const errorMessage = document.getElementById('errorMessage');
+        errorMessage.textContent = message;
+        errorAlert.classList.remove('d-none');
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            errorAlert.classList.add('d-none');
+        }, 5000);
+    }
+
+    // Show warning message
+    function showWarning(message) {
+        const warningAlert = document.getElementById('warningAlert');
+        const warningMessage = document.getElementById('warningMessage');
+        warningMessage.textContent = message;
+        warningAlert.classList.remove('d-none');
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            warningAlert.classList.add('d-none');
+        }, 5000);
+    }
+
+    // Validate face in image using server-side check
+    function validateFace(imageData) {
+        return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append('action', 'validate');
+            formData.append('image_data', imageData);
+
+            fetch('{% url "register_voter_face" voter.id %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resolve({
+                        valid: true,
+                        faceCount: data.face_count,
+                        confidence: data.confidence
+                    });
+                } else {
+                    resolve({
+                        valid: false,
+                        error: data.error
+                    });
+                }
+            })
+            .catch(error => {
+                reject(error);
+            });
+        });
+    }
+
+    // Capture image
+    captureBtn.addEventListener('click', async function() {
+        // Disable button during processing
+        captureBtn.disabled = true;
+        captureBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+        try {
+            const context = canvas.getContext('2d');
+
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Get image data
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            // Validate face in the image
+            const validation = await validateFace(imageData);
+
+            if (validation.valid) {
+                // Check if multiple faces detected
+                if (validation.faceCount > 1) {
+                    showWarning(`Multiple faces detected (${validation.faceCount}). Using the largest face.`);
+                }
+
+                // Check confidence level
+                if (validation.confidence < 0.95) {
+                    showWarning(`Low confidence detection (${(validation.confidence * 100).toFixed(1)}%). Try better lighting or positioning.`);
+                }
+
+                // Add to captured images array
+                capturedImages.push(imageData);
+
+                // Create preview
+                addImagePreview(imageData, capturedImages.length - 1);
+
+                // Update progress
+                updateProgress();
+
+                // Enable save button if enough samples
+                if (capturedImages.length >= requiredSamples) {
+                    saveBtn.disabled = false;
+                }
+            } else {
+                showError(validation.error || "Failed to detect a face. Please try again with better lighting and positioning.");
+            }
+        } catch (error) {
+            showError("Error processing image: " + error.message);
+        } finally {
+            // Re-enable button
+            captureBtn.disabled = false;
+            captureBtn.textContent = 'Capture Image';
+        }
+    });
+
+    // Add image preview
+    function addImagePreview(imageData, index) {
+        const col = document.createElement('div');
+        col.className = 'col-md-4 col-sm-6 mb-3';
+
+        const card = document.createElement('div');
+        card.className = 'card h-100';
+
+        const img = document.createElement('img');
+        img.src = imageData;
+        img.className = 'card-img-top';
+        img.alt = 'Face sample ' + (index + 1);
+
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body';
+
+        const title = document.createElement('h5');
+        title.className = 'card-title';
+        title.textContent = 'Sample ' + (index + 1);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-sm btn-danger';
+        removeBtn.textContent = 'Remove';
+        removeBtn.onclick = function() {
+            capturedImages.splice(index, 1);
+            previewsContainer.innerHTML = '';
+            capturedImages.forEach((img, i) => addImagePreview(img, i));
+            updateProgress();
+            saveBtn.disabled = capturedImages.length < requiredSamples;
+        };
+
+        cardBody.appendChild(title);
+        cardBody.appendChild(removeBtn);
+        card.appendChild(img);
+        card.appendChild(cardBody);
+        col.appendChild(card);
+
+        previewsContainer.appendChild(col);
+    }
+
+    // Update progress bar
+    function updateProgress() {
+        const percent = Math.min(100, (capturedImages.length / requiredSamples) * 100);
+        progressBar.style.width = percent + '%';
+        progressBar.setAttribute('aria-valuenow', percent);
+        progressBar.textContent = capturedImages.length + '/' + requiredSamples;
+    }
+
+    // Save face data
+    saveBtn.addEventListener('click', function() {
+        if (capturedImages.length < requiredSamples) {
+            showError('Please capture at least ' + requiredSamples + ' face samples');
+            return;
+        }
+
+        // Disable button to prevent multiple submissions
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+        // Show processing message
+        showWarning('Processing face data. This may take a moment...');
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('action', 'register');
+        formData.append('voter_id', '{{ voter.voter_id }}');
+        formData.append('sample_count', capturedImages.length);
+        capturedImages.forEach((imageData, index) => {
+            formData.append('image_' + index, imageData);
+        });
+
+        // Send request
+        fetch('{% url "register_voter_face" voter.id %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Show success message with details
+                const successMessage = document.createElement('div');
+                successMessage.className = 'alert alert-success';
+                successMessage.innerHTML = `
+                    <h4 class="alert-heading">Registration Successful!</h4>
+                    <p>${data.message}</p>
+                    <hr>
+                    <p class="mb-0">Redirecting to voter list...</p>
+                `;
+
+                // Replace form with success message
+                const cardBody = document.querySelector('.card-body');
+                cardBody.innerHTML = '';
+                cardBody.appendChild(successMessage);
+
+                // Redirect after delay
+                setTimeout(() => {
+                    window.location.href = '{% url "voter_list" %}';
+                }, 2000);
+            } else {
+                showError(data.error || 'Unknown error occurred');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Face Data';
+            }
+        })
+        .catch(error => {
+            showError('Error: ' + error.message);
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Face Data';
+        });
+    });
+
+    // Initialize
+    document.addEventListener('DOMContentLoaded', function() {
+        startCamera();
+    });
+
+    // Clean up
+    window.addEventListener('beforeunload', function() {
+        stopCamera();
+    });
+</script>
+{% endblock %}

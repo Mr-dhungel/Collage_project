@@ -1,0 +1,221 @@
+# DIAGRAM DESCRIPTIONS FOR VOTING SYSTEM PROJECT
+
+## DIAGRAM 1: System Architecture
+
+Create a layered architecture diagram with the following components:
+
+1. **Client Layer (Top)**
+   - Web Browser (User Interface)
+   - Shows HTML/CSS/JS rendering
+
+2. **Web Server Layer**
+   - Django Web Application
+   - Components:
+     - URL Router (urls.py)
+     - Views (views.py)
+     - Templates (HTML)
+     - Static Files (CSS/JS)
+     - Models (models.py)
+
+3. **Authentication Layer**
+   - Traditional Authentication
+   - Facial Recognition Authentication
+   - Components:
+     - User ID Verification
+     - Password Verification
+     - Face Detection (MTCNN)
+     - Face Embedding (InceptionResNetV1)
+     - Face Matching
+
+4. **Data Storage Layer (Bottom)**
+   - SQLite Database
+   - File System Storage
+     - Face Embeddings (.npy files)
+     - Media Files (candidate photos)
+
+Use arrows to show data flow between layers.
+
+## DIAGRAM 2: Database Schema
+
+Create an Entity-Relationship Diagram (ERD) with the following entities and relationships:
+
+1. **User Entity**
+   - Attributes: id, username, password, first_name, last_name, is_admin, is_voter, voter_id, has_face_data, face_samples_count
+   - Primary Key: id
+
+2. **Voting Entity**
+   - Attributes: id, title, description, start_time, end_time, created_at, updated_at
+   - Primary Key: id
+
+3. **Candidate Entity**
+   - Attributes: id, voting_id, name, description, photo
+   - Primary Key: id
+   - Foreign Key: voting_id references Voting.id
+
+4. **VotingVoter Entity (Junction Table)**
+   - Attributes: id, voting_id, voter_id
+   - Primary Key: id
+   - Foreign Keys: 
+     - voting_id references Voting.id
+     - voter_id references User.id
+
+5. **Vote Entity**
+   - Attributes: id, voter_id, candidate_id, voting_id, timestamp
+   - Primary Key: id
+   - Foreign Keys:
+     - voter_id references User.id
+     - candidate_id references Candidate.id
+     - voting_id references Voting.id
+
+Show relationships with proper cardinality:
+- One User can be assigned to many Votings (through VotingVoter)
+- One Voting can have many Users assigned (through VotingVoter)
+- One Voting can have many Candidates
+- One User can cast many Votes (but only one per Voting)
+- One Candidate can receive many Votes
+- One Voting can have many Votes
+
+## DIAGRAM 3: Facial Recognition Process
+
+Create a flowchart showing the facial recognition process:
+
+1. **Input Image** (from webcam)
+   ↓
+2. **Face Detection** (MTCNN)
+   - Process: Detect face in image
+   - Output: Bounding box coordinates
+   ↓
+3. **Face Extraction**
+   - Process: Crop and align face
+   - Output: Standardized face image (224x224 pixels)
+   ↓
+4. **Feature Extraction** (InceptionResNetV1)
+   - Process: Generate face embedding
+   - Output: 512-dimensional vector
+   ↓
+5. **Face Matching**
+   - Process: Compare with stored embeddings using cosine similarity
+   - Output: Match result with confidence score
+   ↓
+6. **Decision**
+   - If similarity > threshold: Authentication Success
+   - If similarity < threshold: Authentication Failure
+
+Include visual representations of the transformations at each step.
+
+## DIAGRAM 4: Face Registration Workflow
+
+Create a sequence diagram showing the face registration process:
+
+**Actors**: Admin, System, Database
+
+1. Admin → System: Initiate face registration for voter
+2. System → Admin: Display camera interface
+3. Admin → System: Capture face sample 1
+4. System → System: Validate face presence
+5. System → Admin: Confirm face detected
+6. [Repeat steps 3-5 for samples 2-5]
+7. Admin → System: Submit face samples
+8. System → System: Process face samples
+   - Generate embeddings for each sample
+   - Compute average embedding
+9. System → Database: Store face embedding
+10. System → Database: Update user.has_face_data = True
+11. System → Admin: Confirm registration complete
+
+## DIAGRAM 5: Authentication Flow
+
+Create a flowchart showing the authentication process:
+
+1. **Start**
+   ↓
+2. **Enter User ID**
+   ↓
+3. **Validate ID**
+   ↓
+4. **Decision**: User exists?
+   - No → Display error, return to step 2
+   - Yes → Continue
+   ↓
+5. **Decision**: Has face data?
+   - Yes → Go to Facial Authentication
+   - No → Go to Password Authentication
+   ↓
+6. **Facial Authentication**
+   - Capture face
+   - Verify identity
+   - If match → Login Success
+   - If no match → Login Failure
+   ↓
+7. **Password Authentication**
+   - Enter password
+   - Verify password
+   - If match → Login Success
+   - If no match → Login Failure
+   ↓
+8. **Login Success**
+   - Redirect based on user role
+   - Admin → Admin Dashboard
+   - Voter → Voter Home
+
+## DIAGRAM 6: Admin Workflow
+
+Create a use case diagram showing admin capabilities:
+
+**Actor**: Admin
+
+**Use Cases**:
+1. Manage Votings
+   - Create Voting
+   - Edit Voting
+   - Delete Voting
+   - View Voting Details
+   - View Voting Results
+
+2. Manage Candidates
+   - Add Candidate
+   - Edit Candidate
+   - Delete Candidate
+   - Upload Candidate Photo
+
+3. Manage Voters
+   - View Voter List
+   - Add Voter
+   - Edit Voter
+   - Delete Voter
+   - Register Voter Face
+
+4. View Dashboard
+   - View Active Votings
+   - View Upcoming Votings
+   - View Completed Votings
+
+## DIAGRAM 7: Voter Workflow
+
+Create a use case diagram showing voter capabilities:
+
+**Actor**: Voter
+
+**Use Cases**:
+1. Authentication
+   - Login with ID and Password
+   - Login with Facial Recognition
+
+2. View Votings
+   - View Active Votings
+   - View Upcoming Votings
+   - View Completed Votings
+
+3. Participate in Voting
+   - View Candidates
+   - Cast Vote
+   - View Confirmation
+
+4. View Results
+   - View Results of Completed Votings
+   - See Winner(s)
+
+Include constraints:
+- Voter can only vote once per voting
+- Voter can only vote in assigned votings
+- Voter can only view results after voting ends

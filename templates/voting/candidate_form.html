@@ -1,0 +1,99 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if form.instance.pk %}Edit Candidate{% else %}Add Candidate{% endif %} - Voting System
+{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">{% if form.instance.pk %}Edit Candidate{% else %}Add New Candidate{% endif %}</h4>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    {% if form.non_field_errors %}
+                        <div class="alert alert-danger">
+                            {% for error in form.non_field_errors %}
+                                {{ error }}
+                            {% endfor %}
+                        </div>
+                    {% endif %}
+
+                    <div class="mb-3">
+                        <label for="id_name" class="form-label">Name</label>
+                        {{ form.name }}
+                        {% if form.name.errors %}
+                            <div class="text-danger">
+                                {% for error in form.name.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_description" class="form-label">Description</label>
+                        {{ form.description }}
+                        {% if form.description.errors %}
+                            <div class="text-danger">
+                                {% for error in form.description.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_photo" class="form-label">Photo</label>
+                        {% if form.instance.photo %}
+                            <div class="mb-2">
+                                <img src="{{ form.instance.photo.url }}" alt="{{ form.instance.name }}" class="img-thumbnail" style="max-height: 200px;">
+                                <p class="text-muted">Current photo. Upload a new one to replace it.</p>
+                            </div>
+                        {% endif %}
+                        <input type="file" name="photo" id="id_photo" class="form-control" accept="image/*">
+                        {% if form.photo.errors %}
+                            <div class="text-danger">
+                                {% for error in form.photo.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                    {% if form.voting %}
+                    <div class="mb-3">
+                        <label for="id_voting" class="form-label">Voting</label>
+                        {{ form.voting }}
+                        {% if form.voting.errors %}
+                            <div class="text-danger">
+                                {% for error in form.voting.errors %}
+                                    {{ error }}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                    {% endif %}
+
+                    <div class="d-flex justify-content-between">
+                        {% if form.instance.pk %}
+                            <a href="{% url 'voting_detail' form.instance.voting.id %}" class="btn btn-secondary">Cancel</a>
+                        {% elif 'voting_pk' in view.kwargs %}
+                            <a href="{% url 'voting_detail' view.kwargs.voting_pk %}" class="btn btn-secondary">Cancel</a>
+                        {% else %}
+                            <a href="{% url 'candidate_list' %}" class="btn btn-secondary">Cancel</a>
+                        {% endif %}
+                        <button type="submit" class="btn btn-primary">
+                            {% if form.instance.pk %}Update Candidate{% else %}Add Candidate{% endif %}
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

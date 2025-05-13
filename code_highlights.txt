@@ -1,0 +1,295 @@
+# CODE HIGHLIGHTS FROM VOTING SYSTEM PROJECT
+
+## 1. User Model with Dual Role Support
+
+```python
+# accounts/models.py
+class User(AbstractUser):
+    is_admin = models.BooleanField(default=False)
+    is_voter = models.BooleanField(default=True)
+    voter_id = models.CharField(max_length=4, unique=True, blank=True, null=True)
+    has_face_data = models.BooleanField(default=False, help_text="Whether the user has facial recognition data registered")
+    face_samples_count = models.PositiveSmallIntegerField(default=0, help_text="Number of face samples registered for this user")
+
+    objects = UserManager()
+
+    def save(self, *args, **kwargs):
+        if not self.voter_id and self.is_voter:
+            # Generate a unique 4-digit voter ID
+            while True:
+                voter_id = str(random.randint(1000, 9999))
+                if not User.objects.filter(voter_id=voter_id).exists():
+                    self.voter_id = voter_id
+                    break
+        super().save(*args, **kwargs)
+```
+
+## 2. Facial Recognition Core Implementation
+
+```python
+# facial_recognition/face_recognition.py
+class FacialRecognition:
+    def __init__(self, db_path='facial_recognition/face_db', threshold=0.5):
+        # Initialize MTCNN detector
+        self.detector = MTCNN()
+
+        # Initialize ResNet50 model
+        self.model = ResNet50(include_top=False, pooling='avg')
+
+        # Set database path and threshold
+        self.db_path = db_path
+        self.threshold = threshold
+
+        # Create database directory if it doesn't exist
+        os.makedirs(db_path, exist_ok=True)
+
+        # Load face database
+        self.face_db = {}
+        self._load_face_db()
+        
+    def recognize_face(self, img_path=None, img_array=None):
+        # [Implementation details omitted for brevity]
+        # Detect faces
+        faces = self.detect_face(img_array)
+        if not faces:
+            return None, 0
+
+        # Use the largest face (assuming it's the main face)
+        largest_face = max(faces, key=lambda x: x['box'][2] * x['box'][3])
+
+        # Extract and get embedding
+        face_array = self.extract_face(img_array, largest_face)
+        embedding = self.get_embedding(face_array)
+
+        # Compare with database
+        best_match = None
+        best_score = 1.0  # Initialize with worst possible score
+
+        for user_id, db_embedding in self.face_db.items():
+            # Calculate cosine similarity (lower is more similar)
+            similarity = cosine(embedding, db_embedding)
+
+            if similarity < best_score:
+                best_score = similarity
+                best_match = user_id
+
+        # Check if the best match is below the threshold
+        if best_match is not None and best_score < self.threshold:
+            return best_match, 1.0 - best_score  # Convert to confidence score
+        else:
+            return None, 0
+```
+
+## 3. Two-Step Authentication Process
+
+```python
+# accounts/views.py
+def login_view(request):
+    user = None
+    user_id_form = UserIdForm(request.POST or None)
+    password_form = None
+    show_password = False
+
+    if 'user_id' in request.POST:
+        if user_id_form.is_valid():
+            user_id = user_id_form.cleaned_data.get('user_id')
+            user = find_user_by_id(user_id)
+
+            if user:
+                # For voters with facial recognition data, redirect to face login
+                if user.is_voter and user.has_face_data:
+                    request.session['voter_id_for_face_auth'] = user.voter_id
+                    return redirect('face_login', user_id=user.id)
+
+                # Otherwise show password form
+                show_password = True
+                password_form = PasswordForm()
+                password_form.user = user
+            else:
+                messages.error(request, f"No user found with ID: {user_id}")
+
+    elif 'password' in request.POST and 'user_id_value' in request.POST:
+        # [Password verification logic omitted for brevity]
+        # Try to authenticate based on user type
+        if user.is_admin:
+            # For admin users, authenticate with username
+            auth_user = authenticate(request, username=user.username, password=password)
+        else:
+            # For voters, authenticate with voter_id
+            auth_user = authenticate(request, voter_id=user.voter_id, password=password)
+```
+
+## 4. Voting Model with Time-Aware Status
+
+```python
+# voting/models.py
+class Voting(models.Model):
+    title = models.CharField(max_length=200)
+    description = models.TextField()
+    start_time = models.DateTimeField()
+    end_time = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def is_active(self):
+        """Check if the voting is currently active."""
+        now = timezone.now()
+        # Make sure both times are in UTC for comparison
+        start_time = self._ensure_timezone_aware(self.start_time)
+        end_time = self._ensure_timezone_aware(self.end_time)
+
+        # Convert all to UTC for consistent comparison
+        now_utc = now.astimezone(pytz.UTC)
+        start_utc = start_time.astimezone(pytz.UTC)
+        end_utc = end_time.astimezone(pytz.UTC)
+
+        return start_utc <= now_utc <= end_utc
+
+    def has_ended(self):
+        """Check if the voting has ended."""
+        now = timezone.now()
+        end_time = self._ensure_timezone_aware(self.end_time)
+        now_utc = now.astimezone(pytz.UTC)
+        end_utc = end_time.astimezone(pytz.UTC)
+        return now_utc > end_utc
+```
+
+## 5. Face Verification in JavaScript
+
+```javascript
+// templates/accounts/face_login.html
+// Verify identity
+verifyBtn.addEventListener('click', function() {
+    if (!capturedImage) {
+        showError('Please capture an image first');
+        return;
+    }
+
+    // Disable button to prevent multiple submissions
+    verifyBtn.disabled = true;
+    verifyBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Verifying...';
+
+    // Prepare form data
+    const formData = new FormData();
+    formData.append('action', 'verify');
+    formData.append('voter_id', '{{ user.voter_id }}');
+    formData.append('image_data', capturedImage);
+
+    // Send request
+    fetch('{% url "verify_voter_face" user.id %}', {
+        method: 'POST',
+        headers: {
+            'X-CSRFToken': csrfToken
+        },
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            showResult('success', 'Identity verified successfully! Redirecting...');
+            setTimeout(() => {
+                window.location.href = data.redirect_url;
+            }, 1500);
+        } else {
+            showResult('error', 'Verification failed: ' + data.error);
+        }
+    });
+});
+```
+
+## 6. Vote Casting with Validation
+
+```python
+# voting/views.py
+@login_required
+def cast_vote(request, voting_pk):
+    voting = get_object_or_404(Voting, pk=voting_pk)
+
+    # Check if user is assigned to this voting
+    if not VotingVoter.objects.filter(voting=voting, voter=request.user).exists():
+        messages.error(request, "You are not authorized to vote in this election.")
+        return redirect('home')
+
+    # Check if user has already voted
+    if Vote.objects.filter(voter=request.user, voting=voting).exists():
+        messages.error(request, "You have already voted in this election.")
+        return redirect('voting_detail', pk=voting_pk)
+
+    # Check if voting has ended
+    if voting.has_ended():
+        messages.error(request, "This voting has already ended.")
+        return redirect('voting_detail', pk=voting_pk)
+
+    # Check if voting has started
+    if not voting.has_started():
+        messages.error(request, "This voting has not started yet.")
+        return redirect('voting_detail', pk=voting_pk)
+
+    if request.method == 'POST':
+        form = VoteForm(request.POST, voting=voting)
+        if form.is_valid():
+            vote = form.save(commit=False)
+            vote.voter = request.user
+            vote.voting = voting
+            vote.save()
+            messages.success(request, "Your vote has been recorded successfully!")
+            return redirect('voting_detail', pk=voting_pk)
+```
+
+## 7. Results Calculation
+
+```python
+# voting/views.py
+class VotingResultsView(LoginRequiredMixin, DetailView):
+    model = Voting
+    template_name = 'voting/voting_results.html'
+    context_object_name = 'voting'
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        voting = self.get_object()
+
+        # Only show results if voting has ended
+        if voting.has_ended():
+            results = Candidate.objects.filter(voting=voting).annotate(
+                vote_count=Count('votes')
+            ).order_by('-vote_count')
+            context['results'] = results
+
+            # Find the winner(s)
+            if results:
+                max_votes = results.first().vote_count
+                winners = results.filter(vote_count=max_votes)
+                context['winners'] = winners
+        else:
+            messages.warning(self.request, "Results will be available after the voting ends.")
+
+        return context
+```
+
+## 8. Real-Time Clock Display
+
+```javascript
+// templates/base.html
+// Function to update all time displays
+function updateAllTimeDisplays() {
+    // Get current time using Moment.js
+    const now = moment();
+    const timeFormatted = now.format('MMMM D, YYYY, h:mm:ss a');
+
+    // Update navbar time
+    const navbarTimeElement = document.getElementById('navbar-time');
+    if (navbarTimeElement) {
+        navbarTimeElement.textContent = timeFormatted;
+    }
+
+    // Update footer time
+    const footerTimeElement = document.getElementById('footer-time');
+    if (footerTimeElement) {
+        footerTimeElement.textContent = timeFormatted;
+    }
+
+    // Update every second
+    setTimeout(updateAllTimeDisplays, 1000);
+}
+```

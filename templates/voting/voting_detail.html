@@ -1,0 +1,296 @@
+{% extends 'base.html' %}
+
+{% block title %}{{ voting.title }} - Voting System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>{{ voting.title }}</h2>
+    <div>
+        {% if user.is_admin %}
+            <a href="{% url 'voting_update' voting.id %}" class="btn btn-outline-warning me-2">Edit Voting</a>
+            <a href="{% url 'voting_voters' voting.id %}" class="btn btn-outline-primary me-2">Manage Voters</a>
+            <a href="{% url 'voting_list' %}" class="btn btn-outline-secondary">Back to List</a>
+        {% else %}
+            <a href="{% url 'home' %}" class="btn btn-outline-secondary">Back to My Votings</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-8">
+        <div class="card mb-4">
+            <div class="card-header
+                {% if voting.is_active %}
+                    bg-success text-white
+                {% elif voting.has_ended %}
+                    bg-secondary text-white
+                {% else %}
+                    bg-warning text-dark
+                {% endif %}
+            ">
+                <h5 class="mb-0">
+                    {% if voting.is_active %}
+                        Active Voting
+                    {% elif voting.has_ended %}
+                        Completed Voting
+                    {% else %}
+                        Upcoming Voting
+                    {% endif %}
+                </h5>
+            </div>
+            <div class="card-body">
+                <p class="lead">{{ voting.description }}</p>
+                <div class="row">
+                    <div class="col-md-6">
+                        <p><strong>Start Time:</strong>
+                            <span class="local-time" data-utc-time="{{ voting.start_time.isoformat }}">
+                                {{ voting.start_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </p>
+                    </div>
+                    <div class="col-md-6">
+                        <p><strong>End Time:</strong>
+                            <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                {{ voting.end_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </p>
+                    </div>
+                </div>
+
+                {% if voting.has_ended %}
+                    <div class="alert alert-secondary mt-3">
+                        This voting has ended on
+                        <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                            {{ voting.end_time|date:"F j, Y, g:i a" }}
+                        </span>.
+                    </div>
+                    <a href="{% url 'voting_results' voting.id %}" class="btn btn-primary">View Results</a>
+                {% elif not voting.has_started %}
+                    <div class="alert alert-warning mt-3">
+                        This voting will start on
+                        <span class="local-time" data-utc-time="{{ voting.start_time.isoformat }}">
+                            {{ voting.start_time|date:"F j, Y, g:i a" }}
+                        </span>.
+                    </div>
+                {% elif has_voted %}
+                    <div class="alert alert-info mt-3">
+                        You have already voted in this election.
+                    </div>
+                    {% if voting.has_ended %}
+                        <a href="{% url 'voting_results' voting.id %}" class="btn btn-primary">View Results</a>
+                    {% endif %}
+                {% elif not user.is_admin %}
+                    <!-- Show vote button as long as voting has started and user hasn't voted -->
+                    <div class="alert alert-success mt-3">
+                        This voting is active. You can cast your vote now!
+                    </div>
+                    <a href="{% url 'cast_vote' voting_pk=voting.id %}" class="btn btn-primary">Cast Your Vote</a>
+                {% endif %}
+
+
+            </div>
+        </div>
+
+        {% if user.is_admin %}
+            <div class="card mb-4">
+                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">Candidates</h5>
+                    <a href="{% url 'candidate_create' voting_pk=voting.id %}" class="btn btn-sm btn-outline-light">Add Candidate</a>
+                </div>
+                <div class="card-body">
+                    {% if voting.candidates.all %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Description</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for candidate in voting.candidates.all %}
+                                        <tr>
+                                            <td>{{ candidate.name }}</td>
+                                            <td>{{ candidate.description|truncatewords:10 }}</td>
+                                            <td>
+                                                <a href="{% url 'candidate_update' candidate.id %}" class="btn btn-sm btn-outline-warning">Edit</a>
+                                                <a href="{% url 'candidate_delete' candidate.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                                            </td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-info">
+                            No candidates added yet. Click the "Add Candidate" button to add one.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div class="card">
+                <div class="card-header bg-dark text-white">
+                    <h5 class="mb-0">Assigned Voters</h5>
+                </div>
+                <div class="card-body">
+                    {% if voting.voting_voters.all %}
+                        <div class="table-responsive">
+                            <table class="table table-striped">
+                                <thead>
+                                    <tr>
+                                        <th>Voter ID</th>
+                                        <th>Username</th>
+                                        <th>Name</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for voting_voter in voting.voting_voters.all %}
+                                        <tr>
+                                            <td>{{ voting_voter.voter.voter_id }}</td>
+                                            <td>{{ voting_voter.voter.username }}</td>
+                                            <td>{{ voting_voter.voter.first_name }} {{ voting_voter.voter.last_name }}</td>
+                                        </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            No voters assigned to this voting. <a href="{% url 'voting_voters' voting.id %}">Assign voters</a>.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+
+    <div class="col-md-4">
+        {% if voting.is_active and not user.is_admin and not has_voted %}
+            <div class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h5 class="mb-0">Cast Your Vote</h5>
+                </div>
+                <div class="card-body">
+                    {% if vote_form %}
+                        <form method="post" action="{% url 'cast_vote' voting_pk=voting.id %}">
+                            {% csrf_token %}
+                            {{ vote_form.as_p }}
+                            <button type="submit" class="btn btn-primary">Submit Vote</button>
+                        </form>
+                    {% else %}
+                        <div class="alert alert-warning">
+                            You cannot vote in this election.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+
+        {% if voting.has_ended %}
+            <div class="card">
+                <div class="card-header bg-info text-white">
+                    <h5 class="mb-0">Results</h5>
+                </div>
+                <div class="card-body">
+                    {% if results %}
+                        <h6>Vote Counts:</h6>
+                        <ul class="list-group mb-3">
+                            {% for candidate in results %}
+                                <li class="list-group-item d-flex justify-content-between align-items-center">
+                                    {{ candidate.name }}
+                                    <span class="badge bg-primary rounded-pill">{{ candidate.vote_count }}</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+
+                        {% if winners %}
+                            <div class="alert alert-success">
+                                <h6>Winner{% if winners.count > 1 %}s{% endif %}:</h6>
+                                <ul>
+                                    {% for winner in winners %}
+                                        <li>{{ winner.name }} ({{ winner.vote_count }} votes)</li>
+                                    {% endfor %}
+                                </ul>
+                            </div>
+                        {% endif %}
+                    {% else %}
+                        <div class="alert alert-info">
+                            No votes have been cast yet.
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Custom status checking for voting detail page
+        function checkVotingDetailStatus() {
+            const now = moment();
+            let needsReload = false;
+
+            // Get voting start and end times
+            const startTimeEl = document.querySelector('span[data-utc-time]');
+            const endTimeEl = document.querySelectorAll('span[data-utc-time]')[1];
+
+            if (startTimeEl && endTimeEl) {
+                const startTime = moment(startTimeEl.getAttribute('data-utc-time'));
+                const endTime = moment(endTimeEl.getAttribute('data-utc-time'));
+
+                // Get current status from card header
+                const cardHeader = document.querySelector('.card-header');
+                let currentStatus = '';
+
+                if (cardHeader.classList.contains('bg-success')) {
+                    currentStatus = 'active';
+                } else if (cardHeader.classList.contains('bg-secondary')) {
+                    currentStatus = 'completed';
+                } else if (cardHeader.classList.contains('bg-warning')) {
+                    currentStatus = 'upcoming';
+                }
+
+                // Calculate what the status should be
+                let correctStatus = '';
+                if (now > endTime) {
+                    correctStatus = 'completed';
+                } else if (now >= startTime) {
+                    correctStatus = 'active';
+                } else {
+                    correctStatus = 'upcoming';
+                }
+
+                // If status should change, mark for reload
+                if (currentStatus !== correctStatus) {
+                    needsReload = true;
+                }
+            }
+
+            // Reload if needed
+            if (needsReload) {
+                location.reload();
+            } else {
+                // Check again in 10 seconds
+                setTimeout(checkVotingDetailStatus, 10000);
+            }
+        }
+
+        // Format all UTC times to local timezone
+        document.querySelectorAll('.local-time').forEach(function(element) {
+            const utcTime = element.getAttribute('data-utc-time');
+            const format = element.getAttribute('data-format') || 'MMMM D, YYYY, h:mm a';
+            if (utcTime) {
+                element.textContent = moment.utc(utcTime).local().format(format);
+            }
+        });
+
+        // Wait 5 seconds before starting checks to allow page to fully load
+        setTimeout(checkVotingDetailStatus, 5000);
+    });
+</script>
+{% endblock %}

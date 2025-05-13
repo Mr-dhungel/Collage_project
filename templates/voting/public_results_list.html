@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}Voting Results - Voting System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Public Voting Results</h2>
+    <div>
+        <a href="{% url 'home' %}" class="btn btn-outline-primary">Back to Home</a>
+    </div>
+</div>
+
+<div class="alert alert-info mb-4">
+    <p class="mb-0">This page shows results for all completed votings. Results are only available after a voting has ended.</p>
+</div>
+
+{% if completed_votings %}
+    <div class="row">
+        {% for voting in completed_votings %}
+            <div class="col-md-4 mb-4">
+                <div class="card h-100">
+                    <div class="card-header bg-secondary text-white">
+                        <h5 class="mb-0">{{ voting.title }}</h5>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text">{{ voting.description|truncatewords:20 }}</p>
+                        <p><strong>Ended:</strong>
+                            <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                {{ voting.end_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </p>
+                        <a href="{% url 'voting_results' pk=voting.id %}" class="btn btn-primary">View Results</a>
+                    </div>
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+{% else %}
+    <div class="alert alert-warning">
+        <p class="mb-0">There are no completed votings yet. Results will appear here after votings have ended.</p>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Function to update all local time displays
+    function updateLocalTimes() {
+        document.querySelectorAll('.local-time').forEach(element => {
+            const utcTimeStr = element.getAttribute('data-utc-time');
+            if (utcTimeStr) {
+                const localTime = moment(utcTimeStr).format('MMMM D, YYYY, h:mm a');
+                element.textContent = localTime;
+            }
+        });
+    }
+
+    // Update times when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        updateLocalTimes();
+    });
+</script>
+{% endblock %}

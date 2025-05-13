@@ -1,0 +1,548 @@
+{% extends 'base.html' %}
+
+{% block title %}
+    {% if form.instance.pk %}Edit Voter{% else %}Add Voter{% endif %} - Voting System
+{% endblock %}
+
+{% block content %}
+{% csrf_token %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">{% if form.instance.pk %}Edit Voter{% else %}Add New Voter{% endif %}</h4>
+            </div>
+            <div class="card-body">
+                <ul class="nav nav-tabs mb-3" id="voterTabs" role="tablist">
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link active" id="profile-tab" data-bs-toggle="tab" data-bs-target="#profile" type="button" role="tab" aria-controls="profile" aria-selected="true">Profile</button>
+                    </li>
+                    {% if form.instance.pk %}
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="face-tab" data-bs-toggle="tab" data-bs-target="#face" type="button" role="tab" aria-controls="face" aria-selected="false">Facial Recognition</button>
+                    </li>
+                    {% endif %}
+                </ul>
+
+                <div class="tab-content" id="voterTabsContent">
+                    <!-- Profile Tab -->
+                    <div class="tab-pane fade show active" id="profile" role="tabpanel" aria-labelledby="profile-tab">
+                        <form method="post">
+                            {% csrf_token %}
+
+                            {% if form.non_field_errors %}
+                                <div class="alert alert-danger">
+                                    {% for error in form.non_field_errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+
+                            <div class="mb-3">
+                                <label for="id_username" class="form-label">Username</label>
+                                {{ form.username }}
+                                {% if form.username.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.username.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            <div class="row">
+                                <div class="col-md-4 mb-3">
+                                    <label for="id_first_name" class="form-label">First Name</label>
+                                    {{ form.first_name }}
+                                    {% if form.first_name.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.first_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label for="id_middle_name" class="form-label">Middle Name (Optional)</label>
+                                    {{ form.middle_name }}
+                                    {% if form.middle_name.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.middle_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+
+                                <div class="col-md-4 mb-3">
+                                    <label for="id_last_name" class="form-label">Last Name</label>
+                                    {{ form.last_name }}
+                                    {% if form.last_name.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.last_name.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+
+                            <div class="mb-3">
+                                <label for="id_gender" class="form-label">Gender</label>
+                                {{ form.gender }}
+                                {% if form.gender.errors %}
+                                    <div class="text-danger">
+                                        {% for error in form.gender.errors %}
+                                            {{ error }}
+                                        {% endfor %}
+                                    </div>
+                                {% endif %}
+                            </div>
+
+                            {% if not form.instance.pk %}
+                                <div class="mb-3">
+                                    <label for="id_password1" class="form-label">Password</label>
+                                    {{ form.password1 }}
+                                    {% if form.password1.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.password1.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                    <div class="form-text">{{ form.password1.help_text }}</div>
+                                </div>
+
+                                <div class="mb-3">
+                                    <label for="id_password2" class="form-label">Confirm Password</label>
+                                    {{ form.password2 }}
+                                    {% if form.password2.errors %}
+                                        <div class="text-danger">
+                                            {% for error in form.password2.errors %}
+                                                {{ error }}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            {% endif %}
+
+                            <div class="d-flex justify-content-between">
+                                <a href="{% url 'voter_list' %}" class="btn btn-secondary">Cancel</a>
+                                <button type="submit" class="btn btn-primary">
+                                    {% if form.instance.pk %}Update Voter{% else %}Create Voter{% endif %}
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Facial Recognition Tab -->
+                    {% if form.instance.pk %}
+                    <div class="tab-pane fade" id="face" role="tabpanel" aria-labelledby="face-tab">
+                        <div class="alert alert-info">
+                            <strong>Instructions:</strong> Please capture 5 different face images to create a robust facial recognition profile.
+                            Try to capture from different angles and with different expressions for better recognition.
+                        </div>
+
+                        <div id="errorAlert" class="alert alert-danger d-none">
+                            <strong>Error:</strong> <span id="errorMessage"></span>
+                        </div>
+
+                        <div id="warningAlert" class="alert alert-warning d-none">
+                            <strong>Warning:</strong> <span id="warningMessage"></span>
+                        </div>
+
+                        <div class="progress mb-3">
+                            <div id="captureProgress" class="progress-bar" role="progressbar" style="width: 0%;"
+                                aria-valuenow="0" aria-valuemin="0" aria-valuemax="100">0/5</div>
+                        </div>
+
+                        <div id="cameraSection" class="mb-3">
+                            <div class="text-center mb-2">
+                                <video id="video" width="400" height="300" class="border" autoplay></video>
+                            </div>
+                            <div class="text-center mb-2">
+                                <button type="button" id="captureBtn" class="btn btn-primary">Capture Image</button>
+                            </div>
+                            <canvas id="canvas" width="400" height="300" class="d-none"></canvas>
+                        </div>
+
+                        <div id="previewsContainer" class="row mb-3">
+                            <!-- Captured images will be displayed here -->
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <button id="clearBtn" class="btn btn-warning" disabled>Clear Face Data</button>
+                            <button id="saveBtn" class="btn btn-success" disabled>Save Face Data</button>
+                        </div>
+
+                        <!-- Current face data status -->
+                        <div class="mt-4">
+                            <h5>Current Face Data Status:</h5>
+                            <p>
+                                {% if form.instance.has_face_data %}
+                                <span class="badge bg-success">Registered</span>
+                                <span class="text-muted ms-2">{{ form.instance.face_samples_count }} samples</span>
+                                {% else %}
+                                <span class="badge bg-secondary">Not Registered</span>
+                                {% endif %}
+                            </p>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+{% if form.instance.pk %}
+<script>
+    // Variables
+    let stream = null;
+    let capturedImages = [];
+    const requiredSamples = 5;
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    const voter_id = "{{ form.instance.voter_id }}";
+    const has_face_data = {{ form.instance.has_face_data|lower }};
+
+    // DOM elements
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const captureBtn = document.getElementById('captureBtn');
+    const saveBtn = document.getElementById('saveBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const previewsContainer = document.getElementById('previewsContainer');
+    const progressBar = document.getElementById('captureProgress');
+
+    // Update clear button state
+    clearBtn.disabled = !has_face_data;
+
+    // Start camera
+    function startCamera() {
+        if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+            navigator.mediaDevices.getUserMedia({ video: true })
+                .then(function(mediaStream) {
+                    stream = mediaStream;
+                    video.srcObject = stream;
+                })
+                .catch(function(error) {
+                    console.error("Error accessing camera:", error);
+                    showError("Error accessing camera: " + error.message);
+                });
+        } else {
+            showError("Your browser does not support camera access");
+        }
+    }
+
+    // Stop camera
+    function stopCamera() {
+        if (stream) {
+            stream.getTracks().forEach(track => track.stop());
+            stream = null;
+        }
+    }
+
+    // Show error message
+    function showError(message) {
+        const errorAlert = document.getElementById('errorAlert');
+        const errorMessage = document.getElementById('errorMessage');
+        errorMessage.textContent = message;
+        errorAlert.classList.remove('d-none');
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            errorAlert.classList.add('d-none');
+        }, 5000);
+    }
+
+    // Show warning message
+    function showWarning(message) {
+        const warningAlert = document.getElementById('warningAlert');
+        const warningMessage = document.getElementById('warningMessage');
+        warningMessage.textContent = message;
+        warningAlert.classList.remove('d-none');
+
+        // Auto-hide after 5 seconds
+        setTimeout(() => {
+            warningAlert.classList.add('d-none');
+        }, 5000);
+    }
+
+    // Validate face in image using server-side check
+    function validateFace(imageData) {
+        return new Promise((resolve, reject) => {
+            const formData = new FormData();
+            formData.append('action', 'validate');
+            formData.append('image_data', imageData);
+
+            fetch('{% url "register_voter_face" form.instance.pk %}', {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken
+                },
+                body: formData
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    resolve({
+                        valid: true,
+                        faceCount: data.face_count,
+                        confidence: data.confidence
+                    });
+                } else {
+                    resolve({
+                        valid: false,
+                        error: data.error
+                    });
+                }
+            })
+            .catch(error => {
+                reject(error);
+            });
+        });
+    }
+
+    // Capture image
+    captureBtn.addEventListener('click', async function() {
+        // Disable button during processing
+        captureBtn.disabled = true;
+        captureBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+        try {
+            const context = canvas.getContext('2d');
+
+            // Draw video frame to canvas
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+            // Get image data
+            const imageData = canvas.toDataURL('image/jpeg');
+
+            // Validate face in the image
+            const validation = await validateFace(imageData);
+
+            if (validation.valid) {
+                // Check if multiple faces detected
+                if (validation.faceCount > 1) {
+                    showWarning(`Multiple faces detected (${validation.faceCount}). Using the largest face.`);
+                }
+
+                // Check confidence level
+                if (validation.confidence < 0.95) {
+                    showWarning(`Low confidence detection (${(validation.confidence * 100).toFixed(1)}%). Try better lighting or positioning.`);
+                }
+
+                // Add to captured images array
+                capturedImages.push(imageData);
+
+                // Create preview
+                addImagePreview(imageData, capturedImages.length - 1);
+
+                // Update progress
+                updateProgress();
+
+                // Enable save button if enough samples
+                if (capturedImages.length >= requiredSamples) {
+                    saveBtn.disabled = false;
+                }
+            } else {
+                showError(validation.error || "Failed to detect a face. Please try again with better lighting and positioning.");
+            }
+        } catch (error) {
+            showError("Error processing image: " + error.message);
+        } finally {
+            // Re-enable button
+            captureBtn.disabled = false;
+            captureBtn.textContent = 'Capture Image';
+        }
+    });
+
+    // Add image preview
+    function addImagePreview(imageData, index) {
+        const col = document.createElement('div');
+        col.className = 'col-md-4 col-sm-6 mb-3';
+
+        const card = document.createElement('div');
+        card.className = 'card h-100';
+
+        const img = document.createElement('img');
+        img.src = imageData;
+        img.className = 'card-img-top';
+        img.alt = 'Face sample ' + (index + 1);
+
+        const cardBody = document.createElement('div');
+        cardBody.className = 'card-body';
+
+        const title = document.createElement('h5');
+        title.className = 'card-title';
+        title.textContent = 'Sample ' + (index + 1);
+
+        const removeBtn = document.createElement('button');
+        removeBtn.className = 'btn btn-sm btn-danger';
+        removeBtn.textContent = 'Remove';
+        removeBtn.onclick = function() {
+            capturedImages.splice(index, 1);
+            previewsContainer.innerHTML = '';
+            capturedImages.forEach((img, i) => addImagePreview(img, i));
+            updateProgress();
+            saveBtn.disabled = capturedImages.length < requiredSamples;
+        };
+
+        cardBody.appendChild(title);
+        cardBody.appendChild(removeBtn);
+        card.appendChild(img);
+        card.appendChild(cardBody);
+        col.appendChild(card);
+
+        previewsContainer.appendChild(col);
+    }
+
+    // Update progress bar
+    function updateProgress() {
+        const percent = Math.min(100, (capturedImages.length / requiredSamples) * 100);
+        progressBar.style.width = percent + '%';
+        progressBar.setAttribute('aria-valuenow', percent);
+        progressBar.textContent = capturedImages.length + '/' + requiredSamples;
+    }
+
+    // Save face data
+    saveBtn.addEventListener('click', function() {
+        if (capturedImages.length < requiredSamples) {
+            showError('Please capture at least ' + requiredSamples + ' face samples');
+            return;
+        }
+
+        // Disable button to prevent multiple submissions
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+        // Show processing message
+        showWarning('Processing face data. This may take a moment...');
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('action', 'register');
+        formData.append('voter_id', voter_id);
+        formData.append('sample_count', capturedImages.length);
+        capturedImages.forEach((imageData, index) => {
+            formData.append('image_' + index, imageData);
+        });
+
+        // Send request
+        fetch('{% url "register_voter_face" form.instance.pk %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Show success message
+                const successAlert = document.createElement('div');
+                successAlert.className = 'alert alert-success';
+                successAlert.innerHTML = `
+                    <h4 class="alert-heading">Registration Successful!</h4>
+                    <p>${data.message}</p>
+                `;
+
+                // Replace camera section with success message
+                const cameraSection = document.getElementById('cameraSection');
+                cameraSection.innerHTML = '';
+                cameraSection.appendChild(successAlert);
+
+                // Clear previews
+                previewsContainer.innerHTML = '';
+
+                // Update buttons
+                saveBtn.disabled = true;
+                clearBtn.disabled = false;
+
+                // Reload page after delay to update status
+                setTimeout(() => {
+                    window.location.reload();
+                }, 2000);
+            } else {
+                showError(data.error || 'Unknown error occurred');
+                saveBtn.disabled = false;
+                saveBtn.textContent = 'Save Face Data';
+            }
+        })
+        .catch(error => {
+            showError('Error: ' + error.message);
+            saveBtn.disabled = false;
+            saveBtn.textContent = 'Save Face Data';
+        });
+    });
+
+    // Clear face data
+    clearBtn.addEventListener('click', function() {
+        if (!confirm('Are you sure you want to delete all facial recognition data for this voter?')) {
+            return;
+        }
+
+        // Disable button to prevent multiple submissions
+        clearBtn.disabled = true;
+        clearBtn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status" aria-hidden="true"></span> Processing...';
+
+        // Prepare form data
+        const formData = new FormData();
+        formData.append('action', 'clear');
+
+        // Send request
+        fetch('{% url "register_voter_face" form.instance.pk %}', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrfToken
+            },
+            body: formData
+        })
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`Server error: ${response.status} ${response.statusText}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.success) {
+                // Reload page to update status
+                window.location.reload();
+            } else {
+                showError(data.error || 'Unknown error occurred');
+                clearBtn.disabled = false;
+                clearBtn.textContent = 'Clear Face Data';
+            }
+        })
+        .catch(error => {
+            showError('Error: ' + error.message);
+            clearBtn.disabled = false;
+            clearBtn.textContent = 'Clear Face Data';
+        });
+    });
+
+    // Initialize camera when face tab is shown
+    document.getElementById('face-tab').addEventListener('shown.bs.tab', function (e) {
+        startCamera();
+    });
+
+    // Stop camera when face tab is hidden
+    document.getElementById('face-tab').addEventListener('hidden.bs.tab', function (e) {
+        stopCamera();
+    });
+
+    // Clean up
+    window.addEventListener('beforeunload', function() {
+        stopCamera();
+    });
+</script>
+{% endif %}
+{% endblock %}

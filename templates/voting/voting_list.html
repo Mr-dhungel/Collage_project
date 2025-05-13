@@ -1,0 +1,140 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Votings - Voting System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <h2>Manage Votings</h2>
+    <a href="{% url 'voting_create' %}" class="btn btn-primary">Create New Voting</a>
+</div>
+
+<div class="card">
+    <div class="card-header bg-primary text-white">
+        <h5 class="mb-0">Votings List</h5>
+    </div>
+    <div class="card-body">
+        {% if votings %}
+            <div class="table-responsive">
+                <table class="table table-striped table-hover">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Start Time</th>
+                            <th>End Time</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for voting in votings %}
+                            <tr>
+                                <td>{{ voting.title }}</td>
+                                <td>
+                                    <span class="local-time" data-utc-time="{{ voting.start_time.isoformat }}">
+                                        {{ voting.start_time|date:"F j, Y, g:i a" }}
+                                    </span>
+                                </td>
+                                <td>
+                                    <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                        {{ voting.end_time|date:"F j, Y, g:i a" }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if voting.is_active_status %}
+                                        <span class="badge bg-success">Active</span>
+                                    {% elif voting.has_ended_status %}
+                                        <span class="badge bg-secondary">Completed</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">Upcoming</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <a href="{% url 'voting_detail' voting.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                                    <a href="{% url 'voting_update' voting.id %}" class="btn btn-sm btn-outline-warning">Edit</a>
+                                    <a href="{% url 'voting_delete' voting.id %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">
+                No votings found. Click the "Create New Voting" button to create one.
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Custom status checking for voting list page
+        function checkVotingListStatus() {
+            let needsReload = false;
+            const now = moment();
+
+            // Check each voting's start and end times
+            document.querySelectorAll('tr').forEach(row => {
+                // Get start time and end time elements in this row
+                const startTimeEl = row.querySelector('span[data-utc-time]');
+                const endTimeEl = row.querySelectorAll('span[data-utc-time]')[1]; // Second span with data-utc-time
+
+                if (startTimeEl && endTimeEl) {
+                    const startTime = moment(startTimeEl.getAttribute('data-utc-time'));
+                    const endTime = moment(endTimeEl.getAttribute('data-utc-time'));
+
+                    // Get current status
+                    const statusEl = row.querySelector('.badge');
+                    let currentStatus = '';
+                    if (statusEl) {
+                        if (statusEl.classList.contains('bg-success')) {
+                            currentStatus = 'active';
+                        } else if (statusEl.classList.contains('bg-secondary')) {
+                            currentStatus = 'completed';
+                        } else {
+                            currentStatus = 'upcoming';
+                        }
+                    }
+
+                    // Calculate what the status should be
+                    let correctStatus = '';
+                    if (now > endTime) {
+                        correctStatus = 'completed';
+                    } else if (now >= startTime) {
+                        correctStatus = 'active';
+                    } else {
+                        correctStatus = 'upcoming';
+                    }
+
+                    // If status should change, mark for reload
+                    if (currentStatus !== correctStatus) {
+                        needsReload = true;
+                    }
+                }
+            });
+
+            // Reload if needed
+            if (needsReload) {
+                location.reload();
+            } else {
+                // Check again in 10 seconds
+                setTimeout(checkVotingListStatus, 10000);
+            }
+        }
+
+        // Format all UTC times to local timezone
+        document.querySelectorAll('.local-time').forEach(function(element) {
+            const utcTime = element.getAttribute('data-utc-time');
+            const format = element.getAttribute('data-format') || 'MMMM D, YYYY, h:mm a';
+            if (utcTime) {
+                element.textContent = moment.utc(utcTime).local().format(format);
+            }
+        });
+
+        // Wait 5 seconds before starting checks to allow page to fully load
+        setTimeout(checkVotingListStatus, 5000);
+    });
+</script>
+{% endblock %}

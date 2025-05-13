@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+
+{% block title %}Admin Dashboard - Voting System{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h2>Admin Dashboard</h2>
+        <p class="text-muted">Current time: <span id="current-time">Loading...</span></p>
+    </div>
+    <div>
+        <a href="{% url 'voting_create' %}" class="btn btn-primary me-2">Create New Voting</a>
+        <a href="{% url 'voter_list' %}" class="btn btn-outline-primary">Manage Voters</a>
+    </div>
+</div>
+
+<div class="row">
+    <div class="col-md-4">
+        <div class="card text-white bg-primary mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Active Votings</h5>
+                <p class="card-text display-4">{{ active_votings.count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-info mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Upcoming Votings</h5>
+                <p class="card-text display-4">{{ upcoming_votings.count }}</p>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4">
+        <div class="card text-white bg-secondary mb-4">
+            <div class="card-body">
+                <h5 class="card-title">Completed Votings</h5>
+                <p class="card-text display-4">{{ completed_votings.count }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if active_votings %}
+    <h3 class="mb-3">Active Votings</h3>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover" id="active-votings-table">
+            <thead class="table-primary">
+                <tr>
+                    <th>Title</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for voting in active_votings %}
+                    <tr>
+                        <td>{{ voting.title }}</td>
+                        <td>
+                            <span class="local-time" data-utc-time="{{ voting.start_time.isoformat }}">
+                                {{ voting.start_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                {{ voting.end_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'voting_detail' voting.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
+{% if upcoming_votings %}
+    <h3 class="mb-3 mt-4">Upcoming Votings</h3>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover" id="upcoming-votings-table">
+            <thead class="table-primary">
+                <tr>
+                    <th>Title</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for voting in upcoming_votings %}
+                    <tr>
+                        <td>{{ voting.title }}</td>
+                        <td>
+                            <span class="local-time" data-utc-time="{{ voting.start_time.isoformat }}">
+                                {{ voting.start_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                {{ voting.end_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'voting_detail' voting.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                            <a href="{% url 'voting_update' voting.id %}" class="btn btn-sm btn-outline-warning">Edit</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+
+{% if completed_votings %}
+    <h3 class="mb-3 mt-4">Completed Votings</h3>
+    <div class="table-responsive">
+        <table class="table table-striped table-hover">
+            <thead class="table-primary">
+                <tr>
+                    <th>Title</th>
+                    <th>Start Time</th>
+                    <th>End Time</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for voting in completed_votings %}
+                    <tr>
+                        <td>{{ voting.title }}</td>
+                        <td>
+                            <span class="local-time" data-utc-time="{{ voting.start_time.isoformat }}">
+                                {{ voting.start_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </td>
+                        <td>
+                            <span class="local-time" data-utc-time="{{ voting.end_time.isoformat }}">
+                                {{ voting.end_time|date:"F j, Y, g:i a" }}
+                            </span>
+                        </td>
+                        <td>
+                            <a href="{% url 'voting_detail' voting.id %}" class="btn btn-sm btn-outline-primary">View</a>
+                            <a href="{% url 'voting_results' voting.id %}" class="btn btn-sm btn-outline-info">View Results</a>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endif %}
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // Function to update the current time
+    function updateCurrentTime() {
+        const currentTimeElement = document.getElementById('current-time');
+        if (currentTimeElement) {
+            // Get current time using Moment.js
+            const now = moment();
+            // Format it as desired
+            currentTimeElement.textContent = now.format('MMMM D, YYYY, h:mm:ss a');
+            // Update every second
+            setTimeout(updateCurrentTime, 1000);
+        }
+    }
+
+    // Function to check if any voting status needs to change and reload the page if necessary
+    function checkStatusChanges() {
+        let needsReload = false;
+        const now = moment();
+
+        // Check active votings
+        document.querySelectorAll('.active-votings tr').forEach(row => {
+            const endTimeEl = row.querySelectorAll('span[data-utc-time]')[1]; // Second span with data-utc-time
+            if (endTimeEl) {
+                const endTime = moment(endTimeEl.getAttribute('data-utc-time'));
+                if (now > endTime) {
+                    needsReload = true;
+                }
+            }
+        });
+
+        // Check upcoming votings
+        document.querySelectorAll('.upcoming-votings tr').forEach(row => {
+            const startTimeEl = row.querySelector('span[data-utc-time]');
+            if (startTimeEl) {
+                const startTime = moment(startTimeEl.getAttribute('data-utc-time'));
+                if (now >= startTime) {
+                    needsReload = true;
+                }
+            }
+        });
+
+        // Reload if needed
+        if (needsReload) {
+            location.reload();
+        } else {
+            // Check again in 10 seconds
+            setTimeout(checkStatusChanges, 10000);
+        }
+    }
+
+    // Start the clock and status checks when the page loads
+    document.addEventListener('DOMContentLoaded', function() {
+        updateCurrentTime();
+
+        // Add classes to tables for status checking
+        if (document.querySelector('#active-votings-table')) {
+            document.querySelector('#active-votings-table').classList.add('active-votings');
+        }
+        if (document.querySelector('#upcoming-votings-table')) {
+            document.querySelector('#upcoming-votings-table').classList.add('upcoming-votings');
+        }
+
+        // Start checking for status changes after 5 seconds
+        setTimeout(checkStatusChanges, 5000);
+    });
+</script>
+{% endblock %}

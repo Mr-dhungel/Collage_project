@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Login - Voting System{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header bg-primary text-white">
+                <h4 class="mb-0">Login</h4>
+            </div>
+            <div class="card-body">
+                {% if not show_password %}
+                    <!-- Step 1: Enter User ID -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <div class="mb-3">
+                            <label for="id_user_id" class="form-label">Username or Voter ID</label>
+                            {{ user_id_form.user_id }}
+                            {% if user_id_form.user_id.errors %}
+                                <div class="text-danger">
+                                    {% for error in user_id_form.user_id.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+                        <button type="submit" class="btn btn-primary">Continue</button>
+                    </form>
+                {% else %}
+                    <!-- Step 2: Enter Password -->
+                    <form method="post">
+                        {% csrf_token %}
+                        <input type="hidden" name="user_id_value" value="{{ user_id_value }}">
+
+                        <div class="mb-3">
+                            <p class="mb-1">Logging in as:</p>
+                            <h5>
+                                {% if user.is_admin %}
+                                    Admin: {{ user.username }}
+                                {% else %}
+                                    Voter: {{ user.first_name }} {{ user.last_name }}
+                                    {% if user.voter_id %}
+                                        (ID: {{ user.voter_id }})
+                                    {% endif %}
+                                {% endif %}
+                            </h5>
+                        </div>
+
+                        <div class="mb-3">
+                            <label for="id_password" class="form-label">Password</label>
+                            {{ password_form.password }}
+                            {% if password_form.password.errors %}
+                                <div class="text-danger">
+                                    {% for error in password_form.password.errors %}
+                                        {{ error }}
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between">
+                            <a href="{% url 'login' %}" class="btn btn-outline-secondary">Back</a>
+                            <button type="submit" class="btn btn-primary">Login</button>
+                        </div>
+                    </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
